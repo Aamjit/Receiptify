@@ -1,4 +1,10 @@
-# Welcome to your Expo app 👋
+# Welcome to Receiptify 👋
+
+![](/assets/gif/demo-1.gif)
+
+![](/assets/gif/demo-2.gif)
+
+![](/assets/gif/demo-3.gif)
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
