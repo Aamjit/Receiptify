@@ -5,9 +5,12 @@ node_modules/
 
 # Expo
 .expo/
+.vscode/
 dist/
 web-build/
+android/
 expo-env.d.ts
+package-lock.json
 
 # Native
 .kotlin/
@@ -32,6 +35,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
