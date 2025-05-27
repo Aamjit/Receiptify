@@ -1,20 +1,24 @@
+import { addDoc, collection, getFirestore } from '@react-native-firebase/firestore';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAppContext } from '../hooks/useApp';
 
 const AccountSetupScreen: React.FC = () => {
     const [formData, setFormData] = useState({
         name: '',
         address: '',
+        phoneNumber: '',
         gstin: '',
-        email: '',
         businessType: '',
         panNumber: '',
         website: '',
         otherInfo: '',
         businessLogo: null as string | null,
     });
+    const [loading, setLoading] = useState({ state: false, text: "" });
     const router = useRouter();
+    const { User } = useAppContext();
 
     // Placeholder function for picking an image
     const handlePickLogo = () => {
@@ -22,53 +26,52 @@ const AccountSetupScreen: React.FC = () => {
     };
 
     const handleChange = (field: string, value: string) => {
+        switch (field) {
+            case "phoneNumber":
+                if (!value.match("^[0-9]*$")) {
+                    return;
+                }
+                break;
+            default:
+                break;
+        }
         setFormData(prev => ({
             ...prev,
             [field]: value,
         }));
     };
 
-    const handleSubmit = () => {
-        // if (!formData.name.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your name.');
-        //     return;
-        // }
-        // if (!formData.address.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your address.');
-        //     return;
-        // }
-        // if (!formData.gstin.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your GSTIN.');
-        //     return;
-        // }
-        // if (!formData.email.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your email address.');
-        //     return;
-        // }
-        // if (!formData.businessType.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your business type or category.');
-        //     return;
-        // }
-        // if (!formData.panNumber.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your PAN number.');
-        //     return;
-        // }
-        // For now, just show an alert with the entered details
-        Alert.alert(
-            'Account Setup Submitted',
-            `Name: ${formData.name}\nAddress: ${formData.address}\nGSTIN: ${formData.gstin}\nEmail: ${formData.email}\nBusiness Type: ${formData.businessType}\nPAN Number: ${formData.panNumber}\nWebsite: ${formData.website}\nOther Info: ${formData.otherInfo}\nLogo: ${formData.businessLogo ? 'Selected' : 'Not selected'}`
-        );
+    const handleSubmit = async () => {
+        setLoading({ state: true, text: "Submitting" })
+        addDoc(collection(getFirestore(), 'Users'), {
+            ...formData,
+            createdAt: new Date(),
+            email: getAuth().currentUser?.email,
+            userId: getAuth().currentUser?.uid as string,
+        }).then(res => {
+            router.dismissTo("/IntroScreen");
+            router.push("/home")
+            Alert.alert('Success', 'Account setup submitted successfully.');
+        }).catch((error) => {
+            console.error('Error uploading user data:', error);
+            Alert.alert('Error', 'Failed to submit account setup. Please try again.');
+        }).finally(() => setLoading({ state: false, text: "" }))
 
-        router.replace("/(tabs)/home");
     };
 
-    return (
-        <ScrollView contentContainerStyle={styles.container}>
+    return loading.state ?
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={{ marginTop: 10 }}>{loading.text}...</Text>
+        </View>
+        :
+        (<ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Setup your Account</Text>
 
             <TextInput
                 style={styles.input}
                 placeholder="Name"
+                placeholderTextColor="#999999"
                 value={formData.name}
                 onChangeText={value => handleChange('name', value)}
                 autoCapitalize="words"
@@ -77,6 +80,7 @@ const AccountSetupScreen: React.FC = () => {
             <TextInput
                 style={styles.input}
                 placeholder="Address"
+                placeholderTextColor="#999999"
                 value={formData.address}
                 onChangeText={value => handleChange('address', value)}
                 multiline
@@ -85,25 +89,37 @@ const AccountSetupScreen: React.FC = () => {
 
             <TextInput
                 style={styles.input}
+                placeholder="Phone Number"
+                keyboardType="phone-pad"
+                placeholderTextColor="#999999"
+                value={formData.phoneNumber}
+                onChangeText={value => handleChange('phoneNumber', value)}
+            />
+
+            <TextInput
+                style={styles.input}
                 placeholder="GSTIN"
+                placeholderTextColor="#999999"
                 value={formData.gstin}
                 onChangeText={value => handleChange('gstin', value)}
                 autoCapitalize="characters"
                 maxLength={15}
             />
-
+            {/* 
             <TextInput
                 style={styles.input}
                 placeholder="Email Address"
+                placeholderTextColor="#999999"
                 value={formData.email}
                 onChangeText={value => handleChange('email', value)}
                 keyboardType="email-address"
                 autoCapitalize="none"
-            />
+            /> */}
 
             <TextInput
                 style={styles.input}
                 placeholder="Business Type or Category"
+                placeholderTextColor="#999999"
                 value={formData.businessType}
                 onChangeText={value => handleChange('businessType', value)}
                 autoCapitalize="words"
@@ -112,6 +128,7 @@ const AccountSetupScreen: React.FC = () => {
             <TextInput
                 style={styles.input}
                 placeholder="PAN Number"
+                placeholderTextColor="#999999"
                 value={formData.panNumber}
                 onChangeText={value => handleChange('panNumber', value)}
                 autoCapitalize="characters"
@@ -121,6 +138,7 @@ const AccountSetupScreen: React.FC = () => {
             <TextInput
                 style={styles.input}
                 placeholder="Website or Social Media Links"
+                placeholderTextColor="#999999"
                 value={formData.website}
                 onChangeText={value => handleChange('website', value)}
                 autoCapitalize="none"
@@ -137,6 +155,7 @@ const AccountSetupScreen: React.FC = () => {
             <TextInput
                 style={[styles.input, styles.otherInfoInput]}
                 placeholder="Other Business Information"
+                placeholderTextColor="#999999"
                 value={formData.otherInfo}
                 onChangeText={value => handleChange('otherInfo', value)}
                 multiline
@@ -144,12 +163,13 @@ const AccountSetupScreen: React.FC = () => {
             />
 
             <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-                <Text style={styles.buttonText}>Finish</Text>
+                <Text style={styles.buttonText}>Create Account</Text>
             </TouchableOpacity>
         </ScrollView>
-    );
+        );
 };
 
+import { getAuth } from '@react-native-firebase/auth';
 import { Platform, StatusBar } from 'react-native';
 
 const styles = StyleSheet.create({

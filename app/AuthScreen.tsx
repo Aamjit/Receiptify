@@ -1,22 +1,49 @@
 
+import { getAuth } from '@react-native-firebase/auth';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, GestureResponderEvent, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+// const confirmation = await signInWithPhoneNumber(getAuth(), phoneNumber);
 
 const AuthScreen = () => {
     const [phoneNumber, setPhoneNumber] = useState<string>('')
     const router = useRouter();
+    // const handleAuthStateChanged = (user: any) => {
+    //     if (user) {
+    //         // Some Android devices can automatically process the verification code (OTP) message, and the user would NOT need to enter the code.
+    //         // Actually, if he/she tries to enter it, he/she will get an error message because the code was already used in the background.
+    //         // In this function, make sure you hide the component(s) for entering the code and/or navigate away from this screen.
+    //         // It is also recommended to display a message to the user informing him/her that he/she has successfully logged in.
+    //     }
+    // }
 
-    const handleLogin = () => {
+    useEffect(() => {
+        // const subscriber = onAuthStateChanged(getAuth(), handleAuthStateChanged);
+        // return subscriber; // unsubscribe on unmount
+        getAuth().currentUser && router.replace("/home")
+    }, []);
+
+    // const handleSignInWithPhoneNumber = async (phoneNumber: string) => {
+    //     const confirmation = await signInWithPhoneNumber(getAuth(), phoneNumber);
+    //     setConfirm(confirmation as any);
+    //     console.log("confirmation", confirmation);
+    // }
+
+    const handleLogin = async (e: GestureResponderEvent) => {
+        e.preventDefault()
         // Basic validation for phone number length
         if (phoneNumber.length < 10) {
             Alert.alert('Invalid Phone Number', 'Please enter a valid phone number with at least 10 digits.')
             return
         }
-        // Here you can add the logic to handle phone number login
-        Alert.alert('Login', `Logging in with phone number: ${phoneNumber}`)
 
-        router.navigate("/(screens)/OTPScreen");
+        // Here you can add the logic to handle phone number login
+        Alert.alert('Login', `OTP sent to phone number: +91-${phoneNumber}`)
+
+        router.navigate({
+            pathname: '/OTPScreen',
+            params: { phoneNumber: phoneNumber },
+        });
     }
 
     return (

@@ -1,3 +1,4 @@
+import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { FlatList, Image, ListRenderItemInfo, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, ViewToken } from 'react-native';
@@ -9,25 +10,25 @@ const slides = [
         key: '1',
         title: 'Welcome to Receiptify',
         description: 'Generate receipts quickly by adding or removing items from your personalised inventory.',
-        image: require("../../assets/images/intro_receipt.png"),
+        image: require("@/assets/images/intro_receipt.png"),
     },
     {
         key: '2',
         title: 'Manage Inventory',
         description: 'Easily add or remove items from your vendor inventory to the receipt.',
-        image: require("../../assets/images/intro_inventory.png"),
+        image: require("@/assets/images/intro_inventory.png"),
     },
     {
         key: '3',
         title: 'Get Prices',
         description: "We take care of your calculations, so you don't have to. Get the total amount for the receipt.",
-        image: require("../../assets/images/intro_prices.png"),
+        image: require("@/assets/images/intro_prices.png"),
     },
     {
         key: '4',
         title: 'Get Started',
         description: 'Tap the button below to start using the app.',
-        image: require("../../assets/images/intro_start.png"),
+        image: require("@/assets/images/intro_start.png"),
     },
 ];
 
@@ -37,6 +38,7 @@ export default function IntroScreen() {
     const flatListRef = useRef<FlatList>(null);
     const router = useRouter();
     const { width } = useWindowDimensions();
+    const AsyncStorageIntro = useAsyncStorage("receiptify-intro");
 
     const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
         if (viewableItems.length > 0) {
@@ -49,7 +51,8 @@ export default function IntroScreen() {
     const handleGetStarted = async () => {
         try {
             // await AsyncStorage.setItem('hasSeenIntro', 'true');
-            router.replace('/(screens)/AuthScreen');
+            AsyncStorageIntro.setItem("true")
+            router.replace('/AuthScreen1');
         } catch (e) {
             console.error('Error setting intro flag', e);
         }
