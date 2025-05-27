@@ -41,7 +41,8 @@ const AuthScreen = () => {
         return subscriber; // unsubscribe on unmount
     }, []);
 
-    const handleSignInOrSignUp = async () => {
+    const handleSignInOrSignUp = async (e: any) => {
+        e.preventDefault();
         if (!email || !password) {
             Alert.alert('Error', 'Please enter both email and password.');
             return;
@@ -90,7 +91,8 @@ const AuthScreen = () => {
         }
     };
 
-    const handleGoogleSignIn = async () => {
+    const handleGoogleSignIn = async (e: any) => {
+        e.preventDefault();
         setLoading({ state: true, text: "Logging in" });
         try {
             await GoogleSignin.hasPlayServices();
@@ -144,7 +146,8 @@ const AuthScreen = () => {
         }
     };
 
-    const handleForgotPassword = () => {
+    const handleForgotPassword = (e: any) => {
+        e.preventDefault();
         if (!email) {
             Alert.alert('Error', 'Please enter your email address to reset your password.');
             return;
