@@ -3,19 +3,31 @@
     "version": ">= 16.6.1",
     "appVersionSource": "remote"
   },
+  // "build": {
+  //   "development": {
+  //     "developmentClient": true,
+  //     "distribution": "internal",
+  //     "env": {
+  //       "GOOGLE_SERVICES_JSON": "@ANDROID_GOOGLE_SERVICES_JSON"
+  //     }
+  //   },
+  //   "preview": {
+  //     "distribution": "internal"
+  //   },
+  //   "production": {
+  //     "autoIncrement": true
+  //   }
+  // },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "GOOGLE_SERVICES_JSON": "@ANDROID_GOOGLE_SERVICES_JSON"
+    "preview": {
+      "android": {
+        "buildType": "apk"
       }
     },
-    "preview": {
-      "distribution": "internal"
-    },
     "production": {
-      "autoIncrement": true
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

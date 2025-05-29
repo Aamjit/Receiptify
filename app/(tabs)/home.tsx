@@ -15,9 +15,9 @@ interface Feature {
 const features: Feature[] = [
     { key: 'createReceipt', label: 'Create Receipt', icon: "create", gradient: ['#4CAF50', '#2E7D32'] },
     { key: 'viewActiveReceipts', label: 'View Active Receipts', icon: "refresh-circle", gradient: ['#9C27B0', '#6A1B9A'] },
-    { key: 'viewPastReceipts', label: 'View Past Receipts', icon: "receipt", gradient: ['#2196F3', '#1565C0'] },
+    { key: 'viewPastReceipts', label: 'View Completed Receipts', icon: "receipt", gradient: ['#2196F3', '#1565C0'] },
     { key: 'manageInventory', label: 'Manage Inventory', icon: "file-tray-stacked", gradient: ['#00BCD4', '#0097A7'] },
-    { key: 'viewReports', label: 'View Reports', icon: "document-text", locked: true, gradient: ['#FF9800', '#F57C00'] },
+    { key: 'viewReports', label: 'View Reports', icon: "document-text", gradient: ['#FF9800', '#F57C00'] },
     { key: 'help', label: 'Get Help', icon: "help-circle", locked: true, gradient: ['#FF5722', '#E64A19'] },
     // Add more features here if needed
 ];
@@ -71,6 +71,9 @@ const HomeScreen: React.FC = () => {
                 break;
             case 'viewActiveReceipts':
                 router.navigate("/ActiveReceipts")
+                break;
+            case 'viewReports':
+                router.navigate("/ReportScreen")
                 break;
             default:
                 Alert.alert(

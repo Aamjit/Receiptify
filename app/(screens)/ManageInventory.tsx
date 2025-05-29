@@ -251,9 +251,9 @@ const ManageInventory = () => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
+            {/* <View style={styles.header}>
                 <Text style={styles.headerText}>Manage your inventory items</Text>
-            </View>
+            </View> */}
 
             <ScrollView
                 style={styles.scrollContainer}
@@ -293,13 +293,16 @@ const ManageInventory = () => {
                             placeholderTextColor="#999"
                             value={name}
                             onChangeText={setName}
+                            autoCapitalize='words'
                             style={styles.input}
                         />
                         <TextInput
                             placeholder="Price (₹)"
                             placeholderTextColor="#999"
-                            value={price}
-                            onChangeText={setPrice}
+                            value={price ? "₹" + price : ''}
+                            onChangeText={(t) => {
+                                setPrice(t.replaceAll("₹", ""))
+                            }}
                             keyboardType="numeric"
                             style={styles.input}
                         />

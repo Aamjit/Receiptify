@@ -3,11 +3,9 @@ import { getAuth } from '@react-native-firebase/auth';
 import { collection, doc, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, FlatList, Modal, NativeModules, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
-
-const { CustomToastModule } = NativeModules;
-console.log('CustomToastModule:', CustomToastModule);
+import React, { useState, useEffect } from 'react';
+import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import CustomDropdown from '../components/CustomDropdown';
 
 type ReceiptItem = {
     id: string
@@ -34,6 +32,13 @@ const ActiveReceipts = () => {
     const [newItemName, setNewItemName] = useState('')
     const [newItemPrice, setNewItemPrice] = useState('')
 
+    // New state for inventory items
+    const [inventoryItems, setInventoryItems] = useState<{ id: string; name: string; price: number }[]>([])
+    const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string>('')
+
+    // State for custom dropdown visibility
+    const [dropdownVisible, setDropdownVisible] = useState(false)
+
     const router = useRouter()
 
     const fetchActiveReceipts = async () => {
@@ -58,6 +63,12 @@ const ActiveReceipts = () => {
                     timestamp: data.timestamp,
                 })
             })
+            // Sort receipts by timestamp in ascending order (older first)
+            receiptsData.sort((a, b) => {
+                const timestampA = a.timestamp || 0
+                const timestampB = b.timestamp || 0
+                return timestampA - timestampB
+            })
             setActiveReceipts(receiptsData)
         } catch (error) {
             Alert.alert('Error', 'Failed to fetch active receipts.')
@@ -65,12 +76,78 @@ const ActiveReceipts = () => {
         }
     }
 
+    const deleteReceipt = async (receiptId: string, receiptNumber: string) => {
+        Alert.alert(
+            'Delete Receipt',
+            `Are you sure you want to delete receipt ${receiptNumber}?`,
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel'
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const db = getFirestore()
+                            const receiptRef = doc(db, 'Receipts', receiptId)
+                            await updateDoc(receiptRef, {
+                                status: 'deleted'
+                            })
+                            // Remove the deleted receipt from activeReceipts list
+                            setActiveReceipts(prevReceipts =>
+                                prevReceipts.filter(r => r.id !== receiptId)
+                            )
+                            await showToast(`Receipt ${receiptNumber} has been deleted`)
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to delete receipt. Please try again.')
+                            console.error('Error deleting receipt:', error)
+                        }
+                    }
+                }
+            ]
+        )
+    }
+
     // Use useFocusEffect to reload data when screen comes into focus
     useFocusEffect(
         React.useCallback(() => {
             fetchActiveReceipts()
+            fetchInventoryItems()
         }, [])
     )
+
+    // Fetch inventory items for the user
+    const fetchInventoryItems = async () => {
+        try {
+            const db = getFirestore()
+            const userId = getAuth().currentUser?.uid
+            if (!userId) return
+            const usersRef = collection(db, 'Users')
+            const q = query(usersRef, where('userId', '==', userId))
+            const querySnapshot = await getDocs(q)
+            if (!querySnapshot.empty) {
+                const userDoc = querySnapshot.docs[0]
+                const userData = userDoc.data()
+                const inventoryArray = userData.inventory || []
+                // Map inventory array to expected format with id, name, price
+                const itemsData = inventoryArray.map((item: any, index: number) => ({
+                    id: item.id || index.toString(),
+                    name: item.name,
+                    price: item.price,
+                }))
+                setInventoryItems(itemsData)
+                if (itemsData.length > 0) {
+                    setSelectedInventoryItemId(itemsData[0].id)
+                    setNewItemName(itemsData[0].name)
+                    setNewItemPrice(itemsData[0].price.toString())
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching inventory items:', error)
+        }
+    }
 
     const onReceiptPress = (receipt: ActiveReceipt) => {
         setSelectedReceipt(receipt)
@@ -187,7 +264,18 @@ const ActiveReceipts = () => {
                     <Ionicons name="receipt-outline" size={20} color="#2196F3" />
                     <Text style={styles.receiptNumber}>{item.receiptNumber}</Text>
                 </View>
-                <Text style={styles.receiptDate}>{formatDate(item.date)}</Text>
+                <View style={styles.receiptHeaderRight}>
+                    <Text style={styles.receiptDate}>{formatDate(item.date)}</Text>
+                    <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            deleteReceipt(item.id, item.receiptNumber);
+                        }}
+                    >
+                        <Ionicons name="trash-outline" size={20} color="#FF5252" />
+                    </TouchableOpacity>
+                </View>
             </View>
             <View style={styles.receiptDetails}>
                 <Text style={styles.itemsCount}>{item.items.length} items</Text>
@@ -330,21 +418,24 @@ const ActiveReceipts = () => {
                                             <Text style={styles.sectionTitle}>Add New Item</Text>
                                             <View style={styles.addItemForm}>
                                                 <View style={styles.addItemInputs}>
-                                                    <TextInput
-                                                        style={[styles.addItemInput, styles.nameInput]}
-                                                        placeholder="Item name"
-                                                        value={newItemName}
-                                                        onChangeText={setNewItemName}
-                                                        placeholderTextColor="#999"
+                                                    <CustomDropdown
+                                                        items={inventoryItems}
+                                                        selectedItemId={selectedInventoryItemId}
+                                                        onSelectItem={(item) => {
+                                                            setSelectedInventoryItemId(item.id)
+                                                            setNewItemName(item.name)
+                                                            setNewItemPrice(item.price.toString())
+                                                        }}
+                                                        placeholder="Select item"
                                                     />
-                                                    <TextInput
+                                                    {/* <TextInput
                                                         style={[styles.addItemInput, styles.priceInput]}
                                                         placeholder="Price"
                                                         keyboardType="numeric"
                                                         value={newItemPrice}
                                                         onChangeText={setNewItemPrice}
                                                         placeholderTextColor="#999"
-                                                    />
+                                                    /> */}
                                                 </View>
                                                 <TouchableOpacity
                                                     style={styles.addButton}
@@ -407,6 +498,7 @@ const styles = StyleSheet.create({
     headerSubtitle: {
         fontSize: 15,
         color: '#666',
+        textAlign: 'center',
     },
     listContent: {
         padding: 20,
@@ -685,6 +777,31 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    deleteButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+    },
+    receiptHeaderRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    dropdown: {
+        position: 'absolute',
+        width: '100%',
+        zIndex: 1000,
+    },
+    dropdownItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    dropdownItemText: {
+        fontSize: 15,
+        color: '#1a1a1a',
     },
 });
 

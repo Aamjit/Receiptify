@@ -3,8 +3,8 @@ import { collection, doc, getDocs, getFirestore, query, setDoc, where } from '@r
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
+import { ActivityIndicator, Alert, GestureResponderEvent, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const AuthScreen = () => {
     const [email, setEmail] = useState<string>('');
@@ -12,6 +12,8 @@ const AuthScreen = () => {
     const [confirmPassword, setConfirmPassword] = useState<string>('');
     const [isSignUp, setIsSignUp] = useState<boolean>(false);
     const [loading, setLoading] = useState({ state: false, text: "" });
+    const [passwordVisible, setPasswordVisible] = useState<boolean>(false);
+    const [confirmPasswordVisible, setConfirmPasswordVisible] = useState<boolean>(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -21,9 +23,9 @@ const AuthScreen = () => {
         });
 
         // Redirect if already logged in
-        if (getAuth().currentUser) {
-            router.replace('/home');
-        }
+        // if (getAuth().currentUser) {
+        //     router.replace('/home');
+        // }
     }, []);
 
 
@@ -62,23 +64,49 @@ const AuthScreen = () => {
                 // Sign up flow with confirmation prompt
                 Alert.alert('Account Create', "Confirm to create a new account? \n\nMake sure you remember your password.",
                     [{
+                        text: 'Back',
+                        onPress: async () => {
+                            return null;
+                        },
+                    }, {
                         text: 'Yes',
                         onPress: async () => {
                             setLoading({ state: true, text: "Signing you in" })
                             try {
                                 await createUserWithEmailAndPassword(getAuth(), email, password)
-                                    && router.replace('/AccountSetupScreen');
+
+                                const authResult = getAuth().currentUser;
+                                if (!authResult) {
+                                    throw new Error('Sign up failed: No user returned');
+                                }
+                                const db = getFirestore();
+                                const usersCollection = collection(db, 'Users');
+
+                                // Wait for user data to be stored
+                                authResult && await setDoc(doc(usersCollection), {
+                                    userId: authResult.uid,
+                                    name: '',
+                                    email: authResult.email || '',
+                                    businessLogo: '',
+                                    phoneNumber: '',
+                                    address: '',
+                                    gstin: '',
+                                    businessType: '',
+                                    panNumber: '',
+                                    website: '',
+                                    otherInfo: '',
+                                    createdAt: new Date()
+                                }).then(() => {
+                                    router.replace('/AccountSetupScreen');
+                                });
+
+
                             } catch (signUpError: any) {
                                 Alert.alert('Account Error', signUpError.message || 'Failed to sign in or sign up.');
                             }
                         },
                     },
-                    {
-                        text: 'Back',
-                        onPress: async () => {
-                            return null;
-                        },
-                    }],
+                    ],
                     {
                         cancelable: true
                     }
@@ -91,7 +119,7 @@ const AuthScreen = () => {
         }
     };
 
-    const handleGoogleSignIn = async (e: any) => {
+    const handleGoogleSignIn = async (e: GestureResponderEvent) => {
         e.preventDefault();
         setLoading({ state: true, text: "Logging in" });
         try {
@@ -175,23 +203,39 @@ const AuthScreen = () => {
                     value={email}
                     onChangeText={setEmail}
                 />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor="#999999"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                />
-                {isSignUp && (
+                <View style={styles.inputContainer}>
                     <TextInput
                         style={styles.input}
-                        placeholder="Confirm Password"
+                        placeholder="Password"
                         placeholderTextColor="#999999"
-                        secureTextEntry
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!passwordVisible}
+                        value={password}
+                        onChangeText={setPassword}
                     />
+                    <TouchableOpacity
+                        style={styles.visibilityToggle}
+                        onPress={() => setPasswordVisible(!passwordVisible)}
+                    >
+                        <View style={{ marginBlock: 'auto' }}>{passwordVisible ? <Ionicons name="eye" size={24} color="#999999" /> : <Ionicons name="eye-off" size={24} color="#999999" />}</View>
+                    </TouchableOpacity>
+                </View>
+                {isSignUp && (
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Confirm Password"
+                            placeholderTextColor="#999999"
+                            secureTextEntry={!confirmPasswordVisible}
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                        />
+                        <TouchableOpacity
+                            style={styles.visibilityToggle}
+                            onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
+                        >
+                            <View>{confirmPasswordVisible ? <Ionicons name="eye" size={24} color="#999999" /> : <Ionicons name="eye-off" size={24} color="#999999" />}</View>
+                        </TouchableOpacity>
+                    </View>
                 )}
                 <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
                     <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
@@ -200,7 +244,7 @@ const AuthScreen = () => {
                     <Text style={styles.buttonText}>{isSignUp ? 'Sign Up' : 'Sign In'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.button, styles.googleButton]} onPress={handleGoogleSignIn}>
-                    <Image width={100} height={100} source={require('@/assets/images/google-icon-min.png')} resizeMode='contain' style={{ flex: .2 }} />
+                    <Image width={1} height={1} source={require('@/assets/images/google-icon-min.png')} resizeMode='contain' style={{ flex: .2 }} />
                     <Text style={[styles.buttonText, styles.buttonTextGoogle]}>Sign In with Google</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} style={styles.switchButton}>
@@ -229,7 +273,7 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: '700',
         marginBottom: 24,
-        color: '#1e293b',
+        color: '#555',
         textAlign: 'center',
     },
     input: {
@@ -259,7 +303,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 12,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 10, height: 5 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 2,
@@ -270,6 +314,7 @@ const styles = StyleSheet.create({
     googleButton: {
         flexDirection: "row",
         backgroundColor: '#fff',
+        gap: 8,
         borderWidth: 1,
         borderColor: '#e2e8f0',
     },
@@ -279,7 +324,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     buttonTextGoogle: {
-        color: '#000',
+        color: '#555',
     },
     forgotPasswordText: {
         color: '#3b82f6',
@@ -308,7 +353,20 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#64748b',
         fontWeight: '500',
-    }
+    },
+    inputContainer: {
+        position: 'relative',
+        justifyContent: 'center',
+    },
+    visibilityToggle: {
+        position: 'absolute',
+        right: "5%",
+        bottom: "10%",
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: "auto",
+    },
 });
 
 export default AuthScreen;

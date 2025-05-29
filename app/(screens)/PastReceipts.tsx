@@ -1,9 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getAuth } from '@react-native-firebase/auth';
-import { collection, getDocs, getFirestore, query, where } from '@react-native-firebase/firestore';
+import { collection, getDocs, getFirestore, query, where, Timestamp } from '@react-native-firebase/firestore';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import DatePicker from '../components/DatePicker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { generateHTMLForReceipt } from '../../helpers/generateHTMLForReceipt';
 
 type ReceiptItem = {
     name: string
@@ -20,21 +24,51 @@ type PastReceipt = {
     timestamp?: number | null
 }
 
+// type BusinessInfo = {
+//     userId: string
+//     name: ''
+//     email: authResult.email || ''
+// businessLogo: ''
+// phoneNumber: ''
+// address: ''
+// gstin: ''
+// businessType: ''
+// panNumber: ''
+// website: ''
+// otherInfo: ''
+// createdAt: 
+// }
+
 const PastReceipts = () => {
     const [modalVisible, setModalVisible] = useState(false)
     const [selectedReceipt, setSelectedReceipt] = useState<PastReceipt | null>(null)
     const [pastReceipts, setPastReceipts] = useState<PastReceipt[]>([])
+    const [selectedDate, setSelectedDate] = useState(new Date())
+    const [isLoading, setIsLoading] = useState({ state: false, message: '' })
+    const [userData, setUserData] = useState<any>(null)
     const router = useRouter()
 
     useEffect(() => {
         const fetchPastReceipts = async () => {
+            setIsLoading({ state: true, message: 'Loading past receipts...' })
             try {
                 const db = getFirestore()
                 const receiptsRef = collection(db, 'Receipts')
+
+                // Set start of day
+                const startOfDay = new Date(selectedDate);
+                startOfDay.setHours(0, 0, 0, 0);
+
+                // Set end of day
+                const endOfDay = new Date(selectedDate);
+                endOfDay.setHours(23, 59, 59, 999);
+
                 const q = query(
                     receiptsRef,
                     where('status', '==', 'complete'),
-                    where('userId', '==', getAuth().currentUser?.uid)
+                    where('userId', '==', getAuth().currentUser?.uid),
+                    where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
+                    where('createdAt', '<=', Timestamp.fromDate(endOfDay))
                 )
                 const querySnapshot = await getDocs(q)
                 const receiptsData: PastReceipt[] = []
@@ -55,18 +89,31 @@ const PastReceipts = () => {
             } catch (error) {
                 Alert.alert('Error', 'Failed to fetch past receipts.')
                 console.error('Error fetching past receipts:', error)
+            } finally {
+                setIsLoading({ state: false, message: '' })
             }
         }
         fetchPastReceipts()
-    }, [])
+        // Get user data from firestore
+        const fetchUserData = async () => {
+            const user = getAuth().currentUser;
+            if (user) {
+                const db = getFirestore();
+                const userDoc = await getDocs(query(collection(db, 'Users'), where('userId', '==', user.uid)));
+                if (!userDoc.empty) {
+                    setUserData(userDoc.docs[0].data());
+                }
+            }
+        }
+        fetchUserData()
+    }, [selectedDate])
 
     const onReceiptPress = (receipt: PastReceipt) => {
         setSelectedReceipt(receipt)
         setModalVisible(true)
     }
 
-    const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr);
+    const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
@@ -74,53 +121,138 @@ const PastReceipts = () => {
         });
     }
 
-    const renderItem = ({ item }: { item: PastReceipt }) => (
-        <TouchableOpacity
-            style={styles.receiptCard}
-            onPress={() => onReceiptPress(item)}
-            activeOpacity={0.7}
-        >
-            <View style={styles.receiptHeader}>
-                <View style={styles.receiptNumberContainer}>
-                    <Ionicons name="receipt-outline" size={20} color="#2196F3" />
-                    <Text style={styles.receiptNumber}>{item.receiptNumber}</Text>
-                </View>
-                <Text style={styles.receiptDate}>{formatDate(item.date)}</Text>
-            </View>
-            <View style={styles.receiptDetails}>
-                <Text style={styles.itemsCount}>{item.items.length} items</Text>
-                <Text style={styles.receiptTotal}>₹{item.total.toFixed(2)}</Text>
-            </View>
-        </TouchableOpacity>
-    )
+    const generatePDF = async () => {
+        setIsLoading({ state: true, message: 'Generating PDF...' });
+        if (!selectedReceipt) return;
+        try {
+            const html = generateHTMLForReceipt({
+                receiptNumber: selectedReceipt.receiptNumber,
+                date: selectedReceipt.date,
+                time: selectedReceipt.timestamp ? new Date(selectedReceipt.timestamp).toLocaleTimeString() : '',
+                items: selectedReceipt.items,
+                total: selectedReceipt.total,
+                businessInfo: {
+                    name: userData?.name || "Your Business Name",
+                    address: userData?.address || "Area, City, Country",
+                    phone: userData?.phoneNumber || "",
+                    email: userData?.email || "contact@business.com",
+                    website: userData?.website || "www.business.com",
+                    // logo: userData?.businessLogo || "", // Optional logo URL
+                }
+            });
+            const { uri } = await Print.printToFileAsync({ html });
+            return uri;
+        } catch (error) {
+            Alert.alert('Error', 'Failed to generate PDF.');
+            console.error('PDF generation error:', error);
+            return null;
+        } finally {
+            setIsLoading({ state: false, message: '' });
+        }
+    };
+
+    const handleSharePDF = async () => {
+        setIsLoading({ state: true, message: 'Preparing PDF for sharing...' });
+        try {
+
+            const pdfUri = await generatePDF();
+            if (pdfUri) {
+                try {
+                    await Sharing.shareAsync(pdfUri, {
+                        mimeType: 'application/pdf',
+                        dialogTitle: 'Share Receipt PDF',
+                    });
+                    Alert.alert('Success', 'Report generated successfully');
+                } catch (error) {
+                    Alert.alert('Error', 'Failed to share PDF.');
+                    console.error('PDF sharing error:', error);
+                }
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to prepare PDF for sharing.');
+            console.error('PDF preparation error:', error);
+        } finally {
+            setIsLoading({ state: false, message: '' });
+        }
+    };
+
+    // Calculate total amount for all receipts
+    const totalForDay = pastReceipts.reduce((sum, r) => sum + (r.total || 0), 0);
+
+    if (isLoading.state) {
+        return <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.loadingText}>{isLoading.message}</Text>
+        </View>
+    }
 
     return (
         <View style={styles.container}>
             <View style={styles.header}>
                 {/* <Text style={styles.headerTitle}>Past Receipts</Text> */}
-                <Text style={styles.headerSubtitle}>View your completed transactions</Text>
+                <Text style={styles.headerSubtitle}>Pick a date to view</Text>
+
+                <DatePicker
+                    selectedDate={selectedDate}
+                    onDateChange={setSelectedDate}
+                    disableFutureDates={true}
+                />
             </View>
 
-            {pastReceipts.length === 0 ? (
+            {/* Show total only if there are receipts */}
+            {pastReceipts.length > 0 && (
+                <View style={styles.totalForDayContainer}>
+                    <Text style={styles.totalForDayLabel}>Total for {selectedDate.toLocaleDateString()}:</Text>
+                    <Text style={styles.totalForDayAmount}>₹{totalForDay.toFixed(2)}</Text>
+                </View>
+            )}
+
+            {isLoading.state ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#2196F3" />
+                    <Text style={styles.loadingText}>{isLoading.message}</Text>
+                </View>
+            ) : pastReceipts.length === 0 ? (
                 <View style={styles.emptyStateContainer}>
                     <Ionicons name="documents-outline" size={64} color="#94a3b8" />
-                    <Text style={styles.emptyStateTitle}>No Past Receipts</Text>
+                    <Text style={styles.emptyStateTitle}>No Receipts</Text>
                     <Text style={styles.emptyStateMessage}>
-                        You don't have any completed receipts yet.{'\n'}
-                        Create a new receipt to get started.
+                        {selectedDate.toDateString() === new Date().toDateString()
+                            ? "You don't have any completed receipts yet.\nCreate a new receipt to get started."
+                            : `There are no completed receipts on \n${selectedDate.toDateString().slice(4)}.`}
                     </Text>
-                    <TouchableOpacity
-                        style={styles.emptyStateButton}
-                        onPress={() => router.push('/CreateReceipt')}
-                    >
-                        <Text style={styles.emptyStateButtonText}>Create New Receipt</Text>
-                    </TouchableOpacity>
+                    {selectedDate.toDateString() === new Date().toDateString() && (
+                        <TouchableOpacity
+                            style={styles.emptyStateButton}
+                            onPress={() => router.push('/CreateReceipt')}
+                        >
+                            <Text style={styles.emptyStateButtonText}>Create New Receipt</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             ) : (
                 <FlatList
                     data={pastReceipts}
                     keyExtractor={item => item.id}
-                    renderItem={renderItem}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={styles.receiptCard}
+                            onPress={() => onReceiptPress(item)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.receiptHeader}>
+                                <View style={styles.receiptNumberContainer}>
+                                    <Ionicons name="receipt-outline" size={20} color="#2196F3" />
+                                    <Text style={styles.receiptNumber}>{item.receiptNumber}</Text>
+                                </View>
+                                <Text style={styles.receiptDate}>{formatDate(new Date(item.date))}</Text>
+                            </View>
+                            <View style={styles.receiptDetails}>
+                                <Text style={styles.itemsCount}>{item.items.length} items</Text>
+                                <Text style={styles.receiptTotal}>₹{item.total.toFixed(2)}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                 />
@@ -156,7 +288,7 @@ const PastReceipts = () => {
                                         </View>
                                         <View style={styles.infoRow}>
                                             <Text style={styles.infoLabel}>Date</Text>
-                                            <Text style={styles.infoValue}>{formatDate(selectedReceipt.date)}</Text>
+                                            <Text style={styles.infoValue}>{formatDate(new Date(selectedReceipt.date))}</Text>
                                         </View>
                                         {selectedReceipt.timestamp && (
                                             <View style={styles.infoRow}>
@@ -186,6 +318,12 @@ const PastReceipts = () => {
                                         <Text style={styles.totalAmount}>₹{selectedReceipt.total.toFixed(2)}</Text>
                                     </View>
                                 </ScrollView>
+                                <TouchableOpacity
+                                    style={styles.shareButton}
+                                    onPress={handleSharePDF}
+                                >
+                                    <Text style={styles.shareButtonText}>Download / Share PDF</Text>
+                                </TouchableOpacity>
                             </>
                         )}
                     </View>
@@ -203,7 +341,7 @@ const styles = StyleSheet.create({
     header: {
         paddingHorizontal: 20,
         paddingTop: Platform.OS === 'ios' ? 50 : 20,
-        paddingBottom: 20,
+        // paddingBottom: 20,
         backgroundColor: '#fff',
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
@@ -422,6 +560,51 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 16,
+        color: '#666',
+    },
+    shareButton: {
+        backgroundColor: '#2196F3',
+        paddingVertical: 14,
+        borderRadius: 12,
+        margin: 20,
+        alignItems: 'center',
+    },
+    shareButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    totalForDayContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#e0f2fe',
+        borderRadius: 10,
+        marginHorizontal: 20,
+        marginTop: 16,
+        marginBottom: 4,
+        paddingVertical: 12,
+        paddingHorizontal: 18,
+    },
+    totalForDayLabel: {
+        fontSize: 16,
+        color: '#1e293b',
+        fontWeight: '600',
+    },
+    totalForDayAmount: {
+        fontSize: 20,
+        color: '#0ea5e9',
+        fontWeight: '700',
     },
 });
 

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { getAuth } from '@react-native-firebase/auth'
-import { addDoc, collection, getDocs, getFirestore, query, where } from '@react-native-firebase/firestore'
+import { addDoc, collection, getDocs, getFirestore, query, where, doc, updateDoc } from '@react-native-firebase/firestore'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
@@ -33,11 +33,18 @@ const CreateReceipt = () => {
         state: true,
         text: "",
     });
+    const [userDocId, setUserDocId] = useState<string>('');
     const userData = getAuth().currentUser
 
     useEffect(() => {
         fetchInventory();
     }, []);
+
+    const generateNextReceiptNumber = (lastNumber: number | undefined) => {
+        // If no last number exists, start from 100
+        const nextNumber = (lastNumber || 99) + 1;
+        return nextNumber.toString();
+    }
 
     const fetchInventory = async () => {
         try {
@@ -54,13 +61,20 @@ const CreateReceipt = () => {
             );
 
             if (!userQuery.empty) {
-                const userData = userQuery.docs[0].data();
+                const userDoc = userQuery.docs[0];
+                const userData = userDoc.data();
+                setUserDocId(userDoc.id);
+
                 // Ensure prices are converted to numbers
                 const inventory = (userData.inventory || []).map((item: any) => ({
                     ...item,
                     price: typeof item.price === 'string' ? parseFloat(item.price) : item.price
                 }));
                 setInventoryItems(inventory);
+
+                // Generate receipt number based on lastReceiptNumber
+                const nextNumber = generateNextReceiptNumber(userData.lastReceiptNumber);
+                setReceiptNumber(nextNumber);
             }
             setLoading({ state: false, text: "" });
         } catch (error) {
@@ -68,12 +82,6 @@ const CreateReceipt = () => {
             setLoading({ state: false, text: "" });
         }
     };
-
-    useEffect(() => {
-        // Autogenerate receipt number on mount
-        const generatedNumber = 'R-' + Date.now().toString()
-        setReceiptNumber(generatedNumber)
-    }, [])
 
     const addItem = (itemId: string) => {
         setReceiptItems(prev => {
@@ -144,7 +152,17 @@ const CreateReceipt = () => {
         };
 
         try {
+            // Save the receipt
             await addDoc(collection(db, 'Receipts'), receiptData);
+
+            // Update lastReceiptNumber in Users document
+            if (userDocId) {
+                const userRef = doc(db, 'Users', userDocId);
+                await updateDoc(userRef, {
+                    lastReceiptNumber: parseInt(receiptNumber)
+                });
+            }
+
             let summary = `Receipt Number: ${receiptNumber}\n\nItems:\n`
             itemsArray.forEach(item => {
                 if (item) {
@@ -157,7 +175,9 @@ const CreateReceipt = () => {
                     text: 'OK',
                     onPress: () => {
                         setReceiptItems({})
-                        setReceiptNumber('R-' + Date.now().toString())
+                        // Generate next receipt number
+                        const nextNumber = generateNextReceiptNumber(parseInt(receiptNumber));
+                        setReceiptNumber(nextNumber);
                     },
                 },
             ])
@@ -182,7 +202,7 @@ const CreateReceipt = () => {
             <View style={styles.header}>
                 <View>
                     <Text style={styles.headerTitle}>New Receipt</Text>
-                    <Text style={styles.receiptNumber}>#{receiptNumber}</Text>
+                    <Text style={styles.receiptNumber}>#{receiptNumber.padStart(3, '0')}</Text>
                 </View>
                 <TouchableOpacity
                     style={styles.closeButton}
@@ -212,7 +232,7 @@ const CreateReceipt = () => {
             <View style={styles.header}>
                 <View>
                     <Text style={styles.headerTitle}>New Receipt</Text>
-                    <Text style={styles.receiptNumber}>#{receiptNumber}</Text>
+                    <Text style={styles.receiptNumber}>#{receiptNumber.padStart(3, '0')}</Text>
                 </View>
                 <TouchableOpacity
                     style={styles.closeButton}
@@ -224,14 +244,14 @@ const CreateReceipt = () => {
 
             <ScrollView
                 style={styles.inventoryList}
-                showsVerticalScrollIndicator={false}
+                showsVerticalScrollIndicator={true}
             >
                 {Object.entries(groupedInventory).map(([category, items]) => (
                     <View key={category} style={styles.categorySection}>
                         <Text style={styles.categoryHeader}>{category}</Text>
                         <View style={styles.itemsContainer}>
                             {items.map(item => {
-                                const qty = receiptItems[item.id] || 0
+                                const qty = receiptItems[item.id] || 0;
                                 return (
                                     <View key={item.id} style={styles.itemCard}>
                                         <View style={styles.itemInfo}>
@@ -327,16 +347,16 @@ const styles = StyleSheet.create({
     inventoryList: {
         flex: 1,
         paddingHorizontal: 20,
-
+        paddingBottom: Platform.OS === 'ios' ? 20 : 0,
     },
     categorySection: {
-        marginBlock: 12
+        marginBlock: 8
     },
     categoryHeader: {
         fontSize: 18,
         fontWeight: '600',
         color: '#1a1a1a',
-        marginBottom: 12,
+        marginBottom: 8,
     },
     itemsContainer: {
         gap: 12,

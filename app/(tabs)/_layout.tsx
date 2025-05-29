@@ -23,11 +23,19 @@ export default function TabLayout() {
             intensity={isDark ? 40 : 80}
             style={[
               StyleSheet.absoluteFillObject,
-              styles.tabBarBackground,
+              // styles.tabBarBackground,
               { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)' }
             ]}
           />
         ),
+        tabBarVisibilityAnimationConfig: {
+          show: {
+            animation: 'spring',
+          },
+          hide: {
+            animation: 'spring',
+          },
+        },
         tabBarStyle: {
           height: Platform.OS === 'ios' ? 88 : 64,
           paddingTop: 4,
@@ -92,9 +100,9 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBarBackground: {
-    overflow: 'hidden',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    // overflow: 'hidden',
+    // borderTopLeftRadius: 24,
+    // borderTopRightRadius: 24,
   },
   icon: {
     opacity: 0.8,

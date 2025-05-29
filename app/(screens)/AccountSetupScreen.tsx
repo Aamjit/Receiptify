@@ -1,10 +1,13 @@
-import { addDoc, collection, getFirestore } from '@react-native-firebase/firestore';
+import { collection, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useAppContext } from '../hooks/useApp';
+import Avatar from '@/components/Avatar';
+import { supabase } from '@/lib/supabase';
+import { ImagePickerAsset } from 'expo-image-picker'
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, StatusBar, ToastAndroid } from 'react-native';
 
-const AccountSetupScreen: React.FC = () => {
+const AccountSetupScreen = () => {
     const [formData, setFormData] = useState({
         name: '',
         address: '',
@@ -14,16 +17,12 @@ const AccountSetupScreen: React.FC = () => {
         panNumber: '',
         website: '',
         otherInfo: '',
-        businessLogo: null as string | null,
+        businessLogo: null,
     });
     const [loading, setLoading] = useState({ state: false, text: "" });
+    const [accountImage, setAccountImage] = useState<ImagePickerAsset | null>(null);
     const router = useRouter();
-    const { User } = useAppContext();
-
-    // Placeholder function for picking an image
-    const handlePickLogo = () => {
-        Alert.alert('Pick Logo', 'Image picker functionality to be implemented.');
-    };
+    const userData = getAuth().currentUser
 
     const handleChange = (field: string, value: string) => {
         switch (field) {
@@ -41,22 +40,103 @@ const AccountSetupScreen: React.FC = () => {
         }));
     };
 
+    const checkFormValidation = () => {
+        const requiredFields: (keyof typeof formData)[] = ['name', 'address', 'phoneNumber', 'businessType'];
+        for (const field of requiredFields) {
+            if (!formData[field]) {
+                Alert.alert('Validation Error', `${field.replace(/([A-Z])/g, ' $1')} is required.`);
+                return false;
+            }
+        }
+
+        if (formData.phoneNumber.length < 10) {
+            Alert.alert('Validation Error', 'Phone number must be at least 10 digits.');
+            return false;
+        }
+
+        if (formData.gstin.length !== 15) {
+            Alert.alert('Validation Error', 'GSTIN must be exactly 15 characters.');
+            return false;
+        }
+
+        if (formData.panNumber.length !== 10) {
+            Alert.alert('Validation Error', 'PAN Number must be exactly 10 characters.');
+            return false;
+        }
+
+        return true;
+    }
+
     const handleSubmit = async () => {
         setLoading({ state: true, text: "Submitting" })
-        addDoc(collection(getFirestore(), 'Users'), {
-            ...formData,
-            createdAt: new Date(),
-            email: getAuth().currentUser?.email,
-            userId: getAuth().currentUser?.uid as string,
-        }).then(res => {
-            router.dismissTo("/IntroScreen");
-            router.push("/home")
-            Alert.alert('Success', 'Account setup submitted successfully.');
-        }).catch((error) => {
-            console.error('Error uploading user data:', error);
-            Alert.alert('Error', 'Failed to submit account setup. Please try again.');
-        }).finally(() => setLoading({ state: false, text: "" }))
+        try {
 
+            if (!checkFormValidation()) {
+                return
+            }
+
+            // Check if the image size is less than 5MB
+            if (accountImage?.fileSize && accountImage?.fileSize > 3 * 1024 * 1024) {
+                Alert.alert('Image Size Error', 'Business logo must be less than 3MB.');
+                return;
+            }
+
+            // upload user image to supabase storage
+            const arraybuffer = await fetch(accountImage?.uri ?? '').then((res) => res.arrayBuffer())
+
+            const fileExt = accountImage?.uri?.split('.').pop()?.toLowerCase() ?? 'jpeg'
+            const path = `${userData?.uid}/${userData?.uid}.${fileExt}`
+            const { data, error: uploadError } = arraybuffer && await supabase.storage
+                .from('receiptify')
+                .upload(path, arraybuffer, {
+                    contentType: accountImage?.mimeType ?? 'image/jpeg',
+                })
+
+            if (uploadError) {
+                Alert.alert('Error', 'Failed to upload profile image. Please try again.\n' + uploadError.message);
+            }
+
+            const imageUrl = supabase.storage.from('receiptify').getPublicUrl(data?.path ?? '');
+
+            // Update user document in Firestore to add the image URL
+            if (!userData?.uid) {
+                Alert.alert('Error', 'User not authenticated.');
+                return;
+            }
+            const usersCollection = collection(getFirestore(), 'Users');
+            const q = query(usersCollection, where('userId', '==', userData.uid));
+            const querySnapshot = await getDocs(q);
+            if (querySnapshot.empty) {
+                Alert.alert('Error', 'User document not found.');
+                return;
+            }
+            const userDocRef = querySnapshot.docs[0].ref;
+            await updateDoc(userDocRef, {
+                // name: formData.name || '',
+                // phoneNumber: formData.phoneNumber || '',
+                // address: formData.address || '',
+                // gstin: formData.gstin || '',
+                // businessType: formData.businessType || '',
+                // panNumber: formData.panNumber || '',
+                // website: formData.website || '',
+                // otherInfo: formData.otherInfo || '',
+                businessLogo: imageUrl.data.publicUrl || '',
+            })
+                .then(() => {
+                    // console.log("User document updated with profile picture URL");
+                    ToastAndroid.show('Account setup submitted successfully.', ToastAndroid.LONG);
+                    router.push("/home");
+                })
+                .catch((error) =>
+                    console.error("Error updating user document:", error)
+                );
+
+        } catch (error) {
+            console.error('Error during account setup:', error);
+            Alert.alert('Error', 'Failed to set up account. Please try again.');
+        } finally {
+            setLoading({ state: false, text: '' });
+        }
     };
 
     return loading.state ?
@@ -70,7 +150,7 @@ const AccountSetupScreen: React.FC = () => {
 
             <TextInput
                 style={styles.input}
-                placeholder="Name"
+                placeholder="Business Name"
                 placeholderTextColor="#999999"
                 value={formData.name}
                 onChangeText={value => handleChange('name', value)}
@@ -105,16 +185,6 @@ const AccountSetupScreen: React.FC = () => {
                 autoCapitalize="characters"
                 maxLength={15}
             />
-            {/* 
-            <TextInput
-                style={styles.input}
-                placeholder="Email Address"
-                placeholderTextColor="#999999"
-                value={formData.email}
-                onChangeText={value => handleChange('email', value)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-            /> */}
 
             <TextInput
                 style={styles.input}
@@ -144,13 +214,13 @@ const AccountSetupScreen: React.FC = () => {
                 autoCapitalize="none"
             />
 
-            <TouchableOpacity style={styles.logoPicker} onPress={handlePickLogo}>
-                {formData.businessLogo ? (
-                    <Image source={{ uri: formData.businessLogo }} style={styles.logoImage} />
-                ) : (
-                    <Text style={styles.logoPickerText}>Pick Business Logo</Text>
-                )}
-            </TouchableOpacity>
+            <Avatar
+                size={{ width: 400, height: 150 }}
+                url={accountImage?.uri ?? ''}
+                onImageSelect={(image) => {
+                    setAccountImage(image)
+                }}
+            />
 
             <TextInput
                 style={[styles.input, styles.otherInfoInput]}
@@ -169,16 +239,13 @@ const AccountSetupScreen: React.FC = () => {
         );
 };
 
-import { getAuth } from '@react-native-firebase/auth';
-import { Platform, StatusBar } from 'react-native';
-
 const styles = StyleSheet.create({
     container: {
         flexGrow: 1,
         paddingInline: 40,
         backgroundColor: '#fff',
         paddingBottom: 20,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 0) + 20) : 20,
     },
     title: {
         fontSize: 24,
