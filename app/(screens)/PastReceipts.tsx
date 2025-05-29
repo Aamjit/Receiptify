@@ -1,5 +1,13 @@
-import React, { useState } from 'react'
-import { FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { getAuth } from '@react-native-firebase/auth';
+import { collection, getDocs, getFirestore, query, where, Timestamp } from '@react-native-firebase/firestore';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import DatePicker from '../components/DatePicker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { generateHTMLForReceipt } from '../../helpers/generateHTMLForReceipt';
 
 type ReceiptItem = {
     name: string
@@ -13,66 +21,243 @@ type PastReceipt = {
     date: string
     total: number
     items: ReceiptItem[]
+    timestamp?: number | null
 }
 
-const mockPastReceipts: PastReceipt[] = [
-    {
-        id: '1',
-        receiptNumber: 'R-1680000000000',
-        date: '2023-03-01',
-        total: 25.50,
-        items: [
-            { name: 'Apple', quantity: 3, price: 1.5 },
-            { name: 'Milk', quantity: 2, price: 2.5 },
-        ],
-    },
-    {
-        id: '2',
-        receiptNumber: 'R-1680000001000',
-        date: '2023-03-05',
-        total: 40.75,
-        items: [
-            { name: 'Banana', quantity: 5, price: 1.0 },
-            { name: 'Cheese', quantity: 1, price: 3.0 },
-        ],
-    },
-    {
-        id: '3',
-        receiptNumber: 'R-1680000002000',
-        date: '2023-03-10',
-        total: 15.20,
-        items: [
-            { name: 'Carrot', quantity: 4, price: 0.8 },
-            { name: 'Broccoli', quantity: 2, price: 1.2 },
-        ],
-    },
-]
+// type BusinessInfo = {
+//     userId: string
+//     name: ''
+//     email: authResult.email || ''
+// businessLogo: ''
+// phoneNumber: ''
+// address: ''
+// gstin: ''
+// businessType: ''
+// panNumber: ''
+// website: ''
+// otherInfo: ''
+// createdAt: 
+// }
 
 const PastReceipts = () => {
     const [modalVisible, setModalVisible] = useState(false)
     const [selectedReceipt, setSelectedReceipt] = useState<PastReceipt | null>(null)
+    const [pastReceipts, setPastReceipts] = useState<PastReceipt[]>([])
+    const [selectedDate, setSelectedDate] = useState(new Date())
+    const [isLoading, setIsLoading] = useState({ state: false, message: '' })
+    const [userData, setUserData] = useState<any>(null)
+    const router = useRouter()
+
+    useEffect(() => {
+        const fetchPastReceipts = async () => {
+            setIsLoading({ state: true, message: 'Loading past receipts...' })
+            try {
+                const db = getFirestore()
+                const receiptsRef = collection(db, 'Receipts')
+
+                // Set start of day
+                const startOfDay = new Date(selectedDate);
+                startOfDay.setHours(0, 0, 0, 0);
+
+                // Set end of day
+                const endOfDay = new Date(selectedDate);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                const q = query(
+                    receiptsRef,
+                    where('status', '==', 'complete'),
+                    where('userId', '==', getAuth().currentUser?.uid),
+                    where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
+                    where('createdAt', '<=', Timestamp.fromDate(endOfDay))
+                )
+                const querySnapshot = await getDocs(q)
+                const receiptsData: PastReceipt[] = []
+                querySnapshot.forEach(doc => {
+                    const data = doc.data()
+                    receiptsData.push({
+                        id: doc.id,
+                        receiptNumber: data.receiptNumber,
+                        date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : '',
+                        total: data.total,
+                        items: data.items,
+                        timestamp: data.timestamp || null,
+                    })
+                })
+                // Sort by timestamp in descending order (newest first)
+                receiptsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+                setPastReceipts(receiptsData)
+            } catch (error) {
+                Alert.alert('Error', 'Failed to fetch past receipts.')
+                console.error('Error fetching past receipts:', error)
+            } finally {
+                setIsLoading({ state: false, message: '' })
+            }
+        }
+        fetchPastReceipts()
+        // Get user data from firestore
+        const fetchUserData = async () => {
+            const user = getAuth().currentUser;
+            if (user) {
+                const db = getFirestore();
+                const userDoc = await getDocs(query(collection(db, 'Users'), where('userId', '==', user.uid)));
+                if (!userDoc.empty) {
+                    setUserData(userDoc.docs[0].data());
+                }
+            }
+        }
+        fetchUserData()
+    }, [selectedDate])
 
     const onReceiptPress = (receipt: PastReceipt) => {
         setSelectedReceipt(receipt)
         setModalVisible(true)
     }
 
-    const renderItem = ({ item }: { item: PastReceipt }) => (
-        <TouchableOpacity style={styles.receiptItem} onPress={() => onReceiptPress(item)}>
-            <Text style={styles.receiptNumber}>{item.receiptNumber}</Text>
-            <Text style={styles.receiptDate}>{item.date}</Text>
-            <Text style={styles.receiptTotal}>${item.total.toFixed(2)}</Text>
-        </TouchableOpacity>
-    )
+    const formatDate = (date: Date) => {
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
+    const generatePDF = async () => {
+        setIsLoading({ state: true, message: 'Generating PDF...' });
+        if (!selectedReceipt) return;
+        try {
+            const html = generateHTMLForReceipt({
+                receiptNumber: selectedReceipt.receiptNumber,
+                date: selectedReceipt.date,
+                time: selectedReceipt.timestamp ? new Date(selectedReceipt.timestamp).toLocaleTimeString() : '',
+                items: selectedReceipt.items,
+                total: selectedReceipt.total,
+                businessInfo: {
+                    name: userData?.name || "Your Business Name",
+                    address: userData?.address || "Area, City, Country",
+                    phone: userData?.phoneNumber || "",
+                    email: userData?.email || "contact@business.com",
+                    website: userData?.website || "www.business.com",
+                    // logo: userData?.businessLogo || "", // Optional logo URL
+                }
+            });
+            const { uri } = await Print.printToFileAsync({ html });
+            return uri;
+        } catch (error) {
+            Alert.alert('Error', 'Failed to generate PDF.');
+            console.error('PDF generation error:', error);
+            return null;
+        } finally {
+            setIsLoading({ state: false, message: '' });
+        }
+    };
+
+    const handleSharePDF = async () => {
+        setIsLoading({ state: true, message: 'Preparing PDF for sharing...' });
+        try {
+
+            const pdfUri = await generatePDF();
+            if (pdfUri) {
+                try {
+                    await Sharing.shareAsync(pdfUri, {
+                        mimeType: 'application/pdf',
+                        dialogTitle: 'Share Receipt PDF',
+                    });
+                    Alert.alert('Success', 'Report generated successfully');
+                } catch (error) {
+                    Alert.alert('Error', 'Failed to share PDF.');
+                    console.error('PDF sharing error:', error);
+                }
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to prepare PDF for sharing.');
+            console.error('PDF preparation error:', error);
+        } finally {
+            setIsLoading({ state: false, message: '' });
+        }
+    };
+
+    // Calculate total amount for all receipts
+    const totalForDay = pastReceipts.reduce((sum, r) => sum + (r.total || 0), 0);
+
+    if (isLoading.state) {
+        return <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.loadingText}>{isLoading.message}</Text>
+        </View>
+    }
 
     return (
         <View style={styles.container}>
-            <FlatList
-                data={mockPastReceipts}
-                keyExtractor={item => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-            />
+            <View style={styles.header}>
+                {/* <Text style={styles.headerTitle}>Past Receipts</Text> */}
+                <Text style={styles.headerSubtitle}>Pick a date to view</Text>
+
+                <DatePicker
+                    selectedDate={selectedDate}
+                    onDateChange={setSelectedDate}
+                    disableFutureDates={true}
+                />
+            </View>
+
+            {/* Show total only if there are receipts */}
+            {pastReceipts.length > 0 && (
+                <View style={styles.totalForDayContainer}>
+                    <Text style={styles.totalForDayLabel}>Total for {selectedDate.toLocaleDateString()}:</Text>
+                    <Text style={styles.totalForDayAmount}>₹{totalForDay.toFixed(2)}</Text>
+                </View>
+            )}
+
+            {isLoading.state ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#2196F3" />
+                    <Text style={styles.loadingText}>{isLoading.message}</Text>
+                </View>
+            ) : pastReceipts.length === 0 ? (
+                <View style={styles.emptyStateContainer}>
+                    <Ionicons name="documents-outline" size={64} color="#94a3b8" />
+                    <Text style={styles.emptyStateTitle}>No Receipts</Text>
+                    <Text style={styles.emptyStateMessage}>
+                        {selectedDate.toDateString() === new Date().toDateString()
+                            ? "You don't have any completed receipts yet.\nCreate a new receipt to get started."
+                            : `There are no completed receipts on \n${selectedDate.toDateString().slice(4)}.`}
+                    </Text>
+                    {selectedDate.toDateString() === new Date().toDateString() && (
+                        <TouchableOpacity
+                            style={styles.emptyStateButton}
+                            onPress={() => router.push('/CreateReceipt')}
+                        >
+                            <Text style={styles.emptyStateButtonText}>Create New Receipt</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            ) : (
+                <FlatList
+                    data={pastReceipts}
+                    keyExtractor={item => item.id}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={styles.receiptCard}
+                            onPress={() => onReceiptPress(item)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.receiptHeader}>
+                                <View style={styles.receiptNumberContainer}>
+                                    <Ionicons name="receipt-outline" size={20} color="#2196F3" />
+                                    <Text style={styles.receiptNumber}>{item.receiptNumber}</Text>
+                                </View>
+                                <Text style={styles.receiptDate}>{formatDate(new Date(item.date))}</Text>
+                            </View>
+                            <View style={styles.receiptDetails}>
+                                <Text style={styles.itemsCount}>{item.items.length} items</Text>
+                                <Text style={styles.receiptTotal}>₹{item.total.toFixed(2)}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
+
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -81,25 +266,66 @@ const PastReceipts = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Receipt Details</Text>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Receipt Details</Text>
+                            <TouchableOpacity
+                                style={styles.modalCloseButton}
+                                onPress={() => setModalVisible(false)}
+                            >
+                                <Ionicons name="close" size={24} color="#666" />
+                            </TouchableOpacity>
+                        </View>
                         {selectedReceipt && (
                             <>
-                                <Text style={styles.modalText}>Receipt Number: {selectedReceipt.receiptNumber}</Text>
-                                <Text style={styles.modalText}>Date: {selectedReceipt.date}</Text>
-                                <Text style={[styles.modalText, styles.itemsHeader]}>Items:</Text>
-                                {selectedReceipt.items.map((item, index) => (
-                                    <View key={index} style={styles.itemRow}>
-                                        <Text style={styles.itemName}>{item.name}</Text>
-                                        <Text style={styles.itemQuantity}>x{item.quantity}</Text>
-                                        <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
+                                <ScrollView
+                                    style={styles.modalScrollView}
+                                    showsVerticalScrollIndicator={false}
+                                >
+                                    <View style={styles.receiptInfo}>
+                                        <View style={styles.infoRow}>
+                                            <Text style={styles.infoLabel}>Receipt Number</Text>
+                                            <Text style={styles.infoValue}>{selectedReceipt.receiptNumber}</Text>
+                                        </View>
+                                        <View style={styles.infoRow}>
+                                            <Text style={styles.infoLabel}>Date</Text>
+                                            <Text style={styles.infoValue}>{formatDate(new Date(selectedReceipt.date))}</Text>
+                                        </View>
+                                        {selectedReceipt.timestamp && (
+                                            <View style={styles.infoRow}>
+                                                <Text style={styles.infoLabel}>Time</Text>
+                                                <Text style={styles.infoValue}>
+                                                    {new Date(selectedReceipt.timestamp).toLocaleTimeString()}
+                                                </Text>
+                                            </View>
+                                        )}
                                     </View>
-                                ))}
-                                <Text style={styles.modalTotal}>Total: ${selectedReceipt.total.toFixed(2)}</Text>
+
+                                    <View style={styles.itemsSection}>
+                                        <Text style={styles.itemsSectionTitle}>Items</Text>
+                                        {selectedReceipt.items.map((item, index) => (
+                                            <View key={index} style={styles.itemCard}>
+                                                <View style={styles.itemInfo}>
+                                                    <Text style={styles.itemName}>{item.name}</Text>
+                                                    <Text style={styles.itemQuantity}>x{item.quantity}</Text>
+                                                </View>
+                                                <Text style={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(2)}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+
+                                    <View style={styles.totalSection}>
+                                        <Text style={styles.totalLabel}>Total Amount</Text>
+                                        <Text style={styles.totalAmount}>₹{selectedReceipt.total.toFixed(2)}</Text>
+                                    </View>
+                                </ScrollView>
+                                <TouchableOpacity
+                                    style={styles.shareButton}
+                                    onPress={handleSharePDF}
+                                >
+                                    <Text style={styles.shareButtonText}>Download / Share PDF</Text>
+                                </TouchableOpacity>
                             </>
                         )}
-                        <Pressable style={styles.closeButton} onPress={() => setModalVisible(false)}>
-                            <Text style={styles.closeButtonText}>Close</Text>
-                        </Pressable>
                     </View>
                 </View>
             </Modal>
@@ -107,108 +333,279 @@ const PastReceipts = () => {
     )
 }
 
-export default PastReceipts
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
+        backgroundColor: '#f8f9fa',
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'ios' ? 50 : 20,
+        // paddingBottom: 20,
         backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1a1a1a',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 15,
+        color: '#666',
     },
     listContent: {
-        paddingBottom: 16,
+        padding: 20,
+        gap: 16,
     },
-    receiptItem: {
-        padding: 12,
-        borderBottomColor: '#ddd',
-        borderBottomWidth: 1,
+    receiptCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    receiptHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        marginBottom: 12,
+    },
+    receiptNumberContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     receiptNumber: {
         fontSize: 16,
         fontWeight: '600',
-        flex: 2,
+        color: '#1a1a1a',
     },
     receiptDate: {
         fontSize: 14,
         color: '#666',
-        flex: 1,
-        textAlign: 'center',
+    },
+    receiptDetails: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    itemsCount: {
+        fontSize: 14,
+        color: '#666',
     },
     receiptTotal: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        flex: 1,
-        textAlign: 'right',
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#2196F3',
     },
     modalOverlay: {
         flex: 1,
+        height: '100%',
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
     },
     modalContent: {
-        width: '85%',
+        width: '90%',
+        maxHeight: '100%',
         backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 20,
+        borderRadius: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
     },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 12,
-        textAlign: 'center',
-    },
-    modalText: {
-        fontSize: 16,
-        marginBottom: 8,
-    },
-    itemsHeader: {
-        marginTop: 8,
-        fontWeight: '600',
-    },
-    itemRow: {
+    modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 6,
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#1a1a1a',
+    },
+    modalCloseButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+    },
+    modalScrollView: {
+        padding: 20,
+
+    },
+    receiptInfo: {
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    infoLabel: {
+        fontSize: 14,
+        color: '#666',
+    },
+    infoValue: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#1a1a1a',
+    },
+    itemsSection: {
+        marginBottom: 20,
+    },
+    itemsSectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#1a1a1a',
+        marginBottom: 12,
+    },
+    itemCard: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 12,
+        gap: 8,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    itemInfo: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     itemName: {
-        flex: 2,
-        fontSize: 16,
+        fontSize: 15,
+        color: '#1a1a1a',
+        flex: 1,
     },
     itemQuantity: {
-        flex: 1,
-        fontSize: 16,
-        textAlign: 'center',
+        fontSize: 14,
+        color: '#666',
+        backgroundColor: '#f0f0f0',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
     },
     itemPrice: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#2196F3',
+    },
+    totalSection: {
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        padding: 16,
+        marginBlock: 8,
+    },
+    totalLabel: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 4,
+    },
+    totalAmount: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1a1a1a',
+    },
+    emptyStateContainer: {
         flex: 1,
-        fontSize: 16,
-        textAlign: 'right',
-    },
-    modalTotal: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginTop: 12,
-        textAlign: 'right',
-    },
-    closeButton: {
-        marginTop: 16,
-        backgroundColor: '#007AFF',
-        borderRadius: 6,
-        paddingVertical: 10,
+        justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: 24,
     },
-    closeButtonText: {
+    emptyStateTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#1e293b',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    emptyStateMessage: {
+        fontSize: 15,
+        color: '#64748b',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    emptyStateButton: {
+        backgroundColor: '#2196F3',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    emptyStateButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
     },
-})
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 16,
+        color: '#666',
+    },
+    shareButton: {
+        backgroundColor: '#2196F3',
+        paddingVertical: 14,
+        borderRadius: 12,
+        margin: 20,
+        alignItems: 'center',
+    },
+    shareButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    totalForDayContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#e0f2fe',
+        borderRadius: 10,
+        marginHorizontal: 20,
+        marginTop: 16,
+        marginBottom: 4,
+        paddingVertical: 12,
+        paddingHorizontal: 18,
+    },
+    totalForDayLabel: {
+        fontSize: 16,
+        color: '#1e293b',
+        fontWeight: '600',
+    },
+    totalForDayAmount: {
+        fontSize: 20,
+        color: '#0ea5e9',
+        fontWeight: '700',
+    },
+});
+
+export default PastReceipts;

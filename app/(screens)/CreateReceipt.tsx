@@ -1,22 +1,18 @@
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { getAuth } from '@react-native-firebase/auth'
+import { addDoc, collection, getDocs, getFirestore, query, where, doc, updateDoc } from '@react-native-firebase/firestore'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 type InventoryItem = {
     id: string
     name: string
     category: string
     price: number
+    availability: string
 }
-
-const mockInventory: InventoryItem[] = [
-    { id: '1', name: 'Apple', category: 'Fruits', price: 1.5 },
-    { id: '2', name: 'Banana', category: 'Fruits', price: 1.0 },
-    { id: '3', name: 'Carrot', category: 'Vegetables', price: 0.8 },
-    { id: '4', name: 'Broccoli', category: 'Vegetables', price: 1.2 },
-    { id: '5', name: 'Milk', category: 'Dairy', price: 2.5 },
-    { id: '6', name: 'Cheese', category: 'Dairy', price: 3.0 },
-]
 
 const groupByCategory = (items: InventoryItem[]) => {
     return items.reduce((acc, item) => {
@@ -30,17 +26,62 @@ const groupByCategory = (items: InventoryItem[]) => {
 
 const CreateReceipt = () => {
     const [receiptNumber, setReceiptNumber] = useState<string>('')
-    const [inventory, setInventory] = useState<InventoryItem[]>([])
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
     const [receiptItems, setReceiptItems] = useState<Record<string, number>>({})
     const router = useRouter();
+    const [loading, setLoading] = useState({
+        state: true,
+        text: "",
+    });
+    const [userDocId, setUserDocId] = useState<string>('');
+    const userData = getAuth().currentUser
 
     useEffect(() => {
-        // Autogenerate receipt number on mount
-        const generatedNumber = 'R-' + Date.now().toString()
-        setReceiptNumber(generatedNumber)
-        // Load inventory (mocked here)
-        setInventory(mockInventory)
-    }, [])
+        fetchInventory();
+    }, []);
+
+    const generateNextReceiptNumber = (lastNumber: number | undefined) => {
+        // If no last number exists, start from 100
+        const nextNumber = (lastNumber || 99) + 1;
+        return nextNumber.toString();
+    }
+
+    const fetchInventory = async () => {
+        try {
+            const userEmail = getAuth().currentUser?.email;
+            if (!userEmail) {
+                console.error('User not authenticated');
+                setLoading({ state: false, text: "" });
+                return;
+            }
+
+            const userQuery = await getDocs(
+                query(collection(getFirestore(), 'Users'),
+                    where('email', '==', userEmail))
+            );
+
+            if (!userQuery.empty) {
+                const userDoc = userQuery.docs[0];
+                const userData = userDoc.data();
+                setUserDocId(userDoc.id);
+
+                // Ensure prices are converted to numbers
+                const inventory = (userData.inventory || []).map((item: any) => ({
+                    ...item,
+                    price: typeof item.price === 'string' ? parseFloat(item.price) : item.price
+                }));
+                setInventoryItems(inventory);
+
+                // Generate receipt number based on lastReceiptNumber
+                const nextNumber = generateNextReceiptNumber(userData.lastReceiptNumber);
+                setReceiptNumber(nextNumber);
+            }
+            setLoading({ state: false, text: "" });
+        } catch (error) {
+            console.error('Error fetching inventory:', error);
+            setLoading({ state: false, text: "" });
+        }
+    };
 
     const addItem = (itemId: string) => {
         setReceiptItems(prev => {
@@ -64,203 +105,390 @@ const CreateReceipt = () => {
 
     const calculateTotal = () => {
         return Object.entries(receiptItems).reduce((total, [itemId, qty]) => {
-            const item = inventory.find(i => i.id === itemId)
+            const item = inventoryItems.find(i => i.id === itemId)
             if (!item) return total
             return total + item.price * qty
         }, 0)
     }
 
     const discardReceipt = () => {
-        Alert.alert('Discard Receipt', 'Are you sure you want to discard this receipt?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Discard',
-                style: 'destructive',
-                onPress: () => {
-                    setReceiptItems({})
-                    setReceiptNumber('R-' + Date.now().toString())
-                    router.back();
-                },
-            },
-        ])
+        // Alert.alert('Discard Receipt', 'Are you sure you want to discard this receipt?', [
+        //     { text: 'Cancel', style: 'cancel' },
+        //     {
+        //         text: 'Discard',
+        //         style: 'destructive',
+        //         onPress: () => {
+        //             setReceiptItems({})
+        //             setReceiptNumber('R-' + Date.now().toString())
+        //             router.back();
+        //         },
+        //     },
+        // ])
+        router.back();
 
     }
 
-    const completeReceipt = () => {
+    const saveReceipt = async () => {
         if (Object.keys(receiptItems).length === 0) {
             Alert.alert('No items', 'Please add items to the receipt before completing.')
             return
         }
-        // For now, just alert the receipt summary
-        let summary = `Receipt Number: ${receiptNumber}\n\nItems:\n`
-        Object.entries(receiptItems).forEach(([itemId, qty]) => {
-            const item = inventory.find(i => i.id === itemId)
-            if (item) {
-                summary += `${item.name} x${qty} = $${(item.price * qty).toFixed(2)}\n`
+        setLoading({ state: true, text: "Saving receipt" })
+
+        const db = getFirestore();
+        const itemsArray = Object.entries(receiptItems).map(([itemId, qty]) => {
+            const item = inventoryItems.find(i => i.id === itemId)
+            return item ? { id: item.id, name: item.name, quantity: qty, price: item.price } : null
+        }).filter(i => i !== null);
+
+        const receiptData = {
+            receiptNumber,
+            userId: userData?.uid,
+            items: itemsArray,
+            total: calculateTotal(),
+            status: "active",
+            createdAt: new Date(),
+            timestamp: Date.now()
+        };
+
+        try {
+            // Save the receipt
+            await addDoc(collection(db, 'Receipts'), receiptData);
+
+            // Update lastReceiptNumber in Users document
+            if (userDocId) {
+                const userRef = doc(db, 'Users', userDocId);
+                await updateDoc(userRef, {
+                    lastReceiptNumber: parseInt(receiptNumber)
+                });
             }
-        })
-        summary += `\nTotal: $${calculateTotal().toFixed(2)}`
-        Alert.alert('Receipt Completed', summary, [
-            {
-                text: 'OK',
-                onPress: () => {
-                    setReceiptItems({})
-                    setReceiptNumber('R-' + Date.now().toString())
+
+            let summary = `Receipt Number: ${receiptNumber}\n\nItems:\n`
+            itemsArray.forEach(item => {
+                if (item) {
+                    summary += `${item.name} x${item.quantity} = $${(item.price * item.quantity).toFixed(2)}\n`
+                }
+            })
+            summary += `\nTotal: $${calculateTotal().toFixed(2)}`
+            Alert.alert('Receipt Saved', summary, [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        setReceiptItems({})
+                        // Generate next receipt number
+                        const nextNumber = generateNextReceiptNumber(parseInt(receiptNumber));
+                        setReceiptNumber(nextNumber);
+                    },
                 },
-            },
-        ])
+            ])
+        } catch (error) {
+            Alert.alert('Error', 'Failed to save receipt. Please try again.')
+            console.error('Error saving receipt:', error);
+        }
+        finally {
+            setLoading({ state: false, text: "" })
+        }
     }
 
-    const groupedInventory = groupByCategory(inventory)
+    const groupedInventory = groupByCategory(inventoryItems)
 
-    return (
+    return loading.state ? (
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.loadingText}>{loading.text || 'Loading'}...</Text>
+        </View>
+    ) : inventoryItems.length === 0 ? (
         <View style={styles.container}>
-            {/* <Text style={styles.header}>Create Receipt</Text> */}
-            <Text style={styles.receiptNumber}>Receipt Number: {receiptNumber}</Text>
-            <ScrollView style={styles.inventoryList}>
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.headerTitle}>New Receipt</Text>
+                    <Text style={styles.receiptNumber}>#{receiptNumber.padStart(3, '0')}</Text>
+                </View>
+                <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={discardReceipt}
+                >
+                    <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.emptyStateContainer}>
+                <Ionicons name="cube-outline" size={64} color="#94a3b8" />
+                <Text style={styles.emptyStateTitle}>No Items Available</Text>
+                <Text style={styles.emptyStateMessage}>
+                    You need to add items to your inventory first.{'\n'}
+                    Go to Inventory Management to add items.
+                </Text>
+                <TouchableOpacity
+                    style={styles.emptyStateButton}
+                    onPress={() => router.push('/ManageInventory')}
+                >
+                    <Text style={styles.emptyStateButtonText}>Go to Inventory</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    ) : (
+        <View style={styles.container}>
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.headerTitle}>New Receipt</Text>
+                    <Text style={styles.receiptNumber}>#{receiptNumber.padStart(3, '0')}</Text>
+                </View>
+                <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={discardReceipt}
+                >
+                    <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView
+                style={styles.inventoryList}
+                showsVerticalScrollIndicator={true}
+            >
                 {Object.entries(groupedInventory).map(([category, items]) => (
                     <View key={category} style={styles.categorySection}>
                         <Text style={styles.categoryHeader}>{category}</Text>
-                        {items.map(item => {
-                            const qty = receiptItems[item.id] || 0
-                            return (
-                                <View key={item.id} style={styles.itemRow}>
-                                    <Text style={styles.itemName}>{item.name}</Text>
-                                    <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
-                                    <View style={styles.quantityControls}>
-                                        <TouchableOpacity onPress={() => removeItem(item.id)} style={styles.controlButton}>
-                                            <Text style={styles.controlButtonText}>-</Text>
-                                        </TouchableOpacity>
-                                        <Text style={styles.quantityText}>{qty}</Text>
-                                        <TouchableOpacity onPress={() => addItem(item.id)} style={styles.controlButton}>
-                                            <Text style={styles.controlButtonText}>+</Text>
-                                        </TouchableOpacity>
+                        <View style={styles.itemsContainer}>
+                            {items.map(item => {
+                                const qty = receiptItems[item.id] || 0;
+                                return (
+                                    <View key={item.id} style={styles.itemCard}>
+                                        <View style={styles.itemInfo}>
+                                            <Text style={styles.itemName}>{item.name}</Text>
+                                            <Text style={styles.itemPrice}>₹{item.price.toFixed(2)}</Text>
+                                        </View>
+                                        <View style={styles.quantityControls}>
+                                            <TouchableOpacity
+                                                onPress={() => removeItem(item.id)}
+                                                style={[styles.controlButton, qty === 0 && styles.controlButtonDisabled]}
+                                            >
+                                                <Ionicons name="remove" size={20} color="#fff" />
+                                            </TouchableOpacity>
+                                            <Text style={styles.quantityText}>{qty}</Text>
+                                            <TouchableOpacity
+                                                onPress={() => addItem(item.id)}
+                                                style={styles.controlButton}
+                                            >
+                                                <Ionicons name="add" size={20} color="#fff" />
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
-                                </View>
-                            )
-                        })}
+                                )
+                            })}
+                        </View>
                     </View>
                 ))}
             </ScrollView>
+
+            <LinearGradient
+                colors={['rgba(255,255,255,0)', '#ffffff']}
+                style={styles.footerGradient}
+                pointerEvents="none"
+            />
+
             <View style={styles.footer}>
-                <Text style={styles.totalText}>Total: ${calculateTotal().toFixed(2)}</Text>
-                <View style={styles.buttonsRow}>
-                    <TouchableOpacity onPress={discardReceipt} style={[styles.button, styles.discardButton]}>
-                        <Text style={styles.buttonText}>Discard</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={completeReceipt} style={[styles.button, styles.completeButton]}>
-                        <Text style={styles.buttonText}>Complete</Text>
-                    </TouchableOpacity>
+                <View style={styles.totalContainer}>
+                    <Text style={styles.totalLabel}>Total Amount</Text>
+                    <Text style={styles.totalText}>₹{calculateTotal().toFixed(2)}</Text>
                 </View>
+                <TouchableOpacity
+                    onPress={saveReceipt}
+                    style={[
+                        styles.saveButton,
+                        Object.keys(receiptItems).length === 0 && styles.saveButtonDisabled
+                    ]}
+                    disabled={Object.keys(receiptItems).length === 0}
+                >
+                    <Text style={styles.saveButtonText}>Save Receipt</Text>
+                </TouchableOpacity>
             </View>
         </View>
     )
 }
 
-export default CreateReceipt
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        // paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight! : 16,
-        paddingTop: 10,
-        paddingHorizontal: 16,
-        paddingBottom: 36,
-        backgroundColor: '#fff',
+        backgroundColor: '#f8f9fa',
     },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'ios' ? 50 : 20,
+        paddingBottom: 20,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    headerTitle: {
         fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 8,
+        fontWeight: '700',
+        color: '#1a1a1a',
+        marginBottom: 4,
     },
     receiptNumber: {
+        fontSize: 15,
+        color: '#666',
+        fontWeight: '500',
+    },
+    closeButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+    },
+    loadingText: {
+        marginTop: 12,
         fontSize: 16,
-        marginBottom: 16,
+        color: '#666',
     },
     inventoryList: {
         flex: 1,
-        marginBottom: 16,
+        paddingHorizontal: 20,
+        paddingBottom: Platform.OS === 'ios' ? 20 : 0,
     },
     categorySection: {
-        marginBottom: 16,
+        marginBlock: 8
     },
     categoryHeader: {
         fontSize: 18,
         fontWeight: '600',
-        backgroundColor: '#f0f0f0',
-        paddingVertical: 4,
-        paddingHorizontal: 8,
+        color: '#1a1a1a',
+        marginBottom: 8,
     },
-    itemRow: {
+    itemsContainer: {
+        gap: 12,
+    },
+    itemCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 8,
-        borderBottomColor: '#ddd',
-        borderBottomWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    itemInfo: {
+        flex: 1,
     },
     itemName: {
-        flex: 2,
         fontSize: 16,
+        fontWeight: '500',
+        color: '#1a1a1a',
+        marginBottom: 4,
     },
     itemPrice: {
-        flex: 1,
-        fontSize: 16,
-        textAlign: 'right',
+        fontSize: 15,
+        color: '#2196F3',
+        fontWeight: '600',
     },
     quantityControls: {
         flexDirection: 'row',
         alignItems: 'center',
-        flex: 1,
-        justifyContent: 'flex-end',
+        gap: 12,
     },
     controlButton: {
-        backgroundColor: '#007AFF',
-        borderRadius: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        marginHorizontal: 4,
+        backgroundColor: '#2196F3',
+        borderRadius: 8,
+        width: 32,
+        height: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    controlButtonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
+    controlButtonDisabled: {
+        backgroundColor: '#ccc',
     },
     quantityText: {
         fontSize: 16,
-        minWidth: 20,
+        fontWeight: '600',
+        color: '#1a1a1a',
+        minWidth: 24,
         textAlign: 'center',
     },
+    footerGradient: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 40,
+    },
     footer: {
-        borderTopColor: '#ddd',
+        backgroundColor: '#fff',
         borderTopWidth: 1,
-        paddingTop: 12,
+        borderTopColor: '#eee',
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    },
+    totalContainer: {
+        marginBottom: 16,
+    },
+    totalLabel: {
+        fontSize: 15,
+        color: '#666',
+        marginBottom: 4,
     },
     totalText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 12,
-        textAlign: 'right',
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1a1a1a',
     },
-    buttonsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    button: {
-        flex: 1,
-        paddingVertical: 12,
-        borderRadius: 6,
+    saveButton: {
+        backgroundColor: '#2196F3',
+        borderRadius: 12,
+        paddingVertical: 16,
         alignItems: 'center',
-        marginHorizontal: 8,
     },
-    discardButton: {
-        backgroundColor: '#FF3B30',
+    saveButtonDisabled: {
+        backgroundColor: '#ccc',
     },
-    completeButton: {
-        backgroundColor: '#34C759',
-    },
-    buttonText: {
+    saveButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
     },
-})
+    emptyStateContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+    },
+    emptyStateTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#1e293b',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    emptyStateMessage: {
+        fontSize: 15,
+        color: '#64748b',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    emptyStateButton: {
+        backgroundColor: '#3b82f6',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    emptyStateButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+});
+
+export default CreateReceipt;

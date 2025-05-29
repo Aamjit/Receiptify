@@ -1,5 +1,11 @@
-import React, { useState } from 'react'
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { getAuth } from '@react-native-firebase/auth';
+import { collection, doc, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import CustomDropdown from '../components/CustomDropdown';
 
 type ReceiptItem = {
     id: string
@@ -14,38 +20,134 @@ type ActiveReceipt = {
     date: string
     total: number
     items: ReceiptItem[]
+    timestamp?: number | null
 }
-
-const mockActiveReceipts: ActiveReceipt[] = [
-    {
-        id: '1',
-        receiptNumber: 'R-1680000003000',
-        date: '2023-03-15',
-        total: 30.00,
-        items: [
-            { id: '1', name: 'Apple', quantity: 2, price: 1.5 },
-            { id: '2', name: 'Milk', quantity: 3, price: 2.5 },
-        ],
-    },
-    {
-        id: '2',
-        receiptNumber: 'R-1680000004000',
-        date: '2023-03-18',
-        total: 50.00,
-        items: [
-            { id: '3', name: 'Banana', quantity: 4, price: 1.0 },
-            { id: '4', name: 'Cheese', quantity: 2, price: 3.0 },
-        ],
-    },
-]
 
 const ActiveReceipts = () => {
     const [modalVisible, setModalVisible] = useState(false)
     const [selectedReceipt, setSelectedReceipt] = useState<ActiveReceipt | null>(null)
     const [items, setItems] = useState<ReceiptItem[]>([])
+    const [activeReceipts, setActiveReceipts] = useState<ActiveReceipt[]>([])
 
     const [newItemName, setNewItemName] = useState('')
     const [newItemPrice, setNewItemPrice] = useState('')
+
+    // New state for inventory items
+    const [inventoryItems, setInventoryItems] = useState<{ id: string; name: string; price: number }[]>([])
+    const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string>('')
+
+    // State for custom dropdown visibility
+    const [dropdownVisible, setDropdownVisible] = useState(false)
+
+    const router = useRouter()
+
+    const fetchActiveReceipts = async () => {
+        try {
+            const db = getFirestore()
+            const receiptsRef = collection(db, 'Receipts')
+            const q = query(
+                receiptsRef,
+                where('status', '==', 'active'),
+                where('userId', '==', getAuth().currentUser?.uid)
+            )
+            const querySnapshot = await getDocs(q)
+            const receiptsData: ActiveReceipt[] = []
+            querySnapshot.forEach(doc => {
+                const data = doc.data()
+                receiptsData.push({
+                    id: doc.id,
+                    receiptNumber: data.receiptNumber,
+                    date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : '',
+                    total: data.total,
+                    items: data.items,
+                    timestamp: data.timestamp,
+                })
+            })
+            // Sort receipts by timestamp in ascending order (older first)
+            receiptsData.sort((a, b) => {
+                const timestampA = a.timestamp || 0
+                const timestampB = b.timestamp || 0
+                return timestampA - timestampB
+            })
+            setActiveReceipts(receiptsData)
+        } catch (error) {
+            Alert.alert('Error', 'Failed to fetch active receipts.')
+            console.error('Error fetching active receipts:', error)
+        }
+    }
+
+    const deleteReceipt = async (receiptId: string, receiptNumber: string) => {
+        Alert.alert(
+            'Delete Receipt',
+            `Are you sure you want to delete receipt ${receiptNumber}?`,
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel'
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const db = getFirestore()
+                            const receiptRef = doc(db, 'Receipts', receiptId)
+                            await updateDoc(receiptRef, {
+                                status: 'deleted'
+                            })
+                            // Remove the deleted receipt from activeReceipts list
+                            setActiveReceipts(prevReceipts =>
+                                prevReceipts.filter(r => r.id !== receiptId)
+                            )
+                            await showToast(`Receipt ${receiptNumber} has been deleted`)
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to delete receipt. Please try again.')
+                            console.error('Error deleting receipt:', error)
+                        }
+                    }
+                }
+            ]
+        )
+    }
+
+    // Use useFocusEffect to reload data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchActiveReceipts()
+            fetchInventoryItems()
+        }, [])
+    )
+
+    // Fetch inventory items for the user
+    const fetchInventoryItems = async () => {
+        try {
+            const db = getFirestore()
+            const userId = getAuth().currentUser?.uid
+            if (!userId) return
+            const usersRef = collection(db, 'Users')
+            const q = query(usersRef, where('userId', '==', userId))
+            const querySnapshot = await getDocs(q)
+            if (!querySnapshot.empty) {
+                const userDoc = querySnapshot.docs[0]
+                const userData = userDoc.data()
+                const inventoryArray = userData.inventory || []
+                // Map inventory array to expected format with id, name, price
+                const itemsData = inventoryArray.map((item: any, index: number) => ({
+                    id: item.id || index.toString(),
+                    name: item.name,
+                    price: item.price,
+                }))
+                setInventoryItems(itemsData)
+                if (itemsData.length > 0) {
+                    setSelectedInventoryItemId(itemsData[0].id)
+                    setNewItemName(itemsData[0].name)
+                    setNewItemPrice(itemsData[0].price.toString())
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching inventory items:', error)
+        }
+    }
 
     const onReceiptPress = (receipt: ActiveReceipt) => {
         setSelectedReceipt(receipt)
@@ -81,28 +183,104 @@ const ActiveReceipts = () => {
         return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
     }
 
-    const saveChanges = () => {
+    const saveChanges = async () => {
         if (selectedReceipt) {
-            // For now, just alert the updated receipt summary
-            let summary = `Receipt Number: ${selectedReceipt.receiptNumber}\n\nItems:\n`
-            items.forEach(item => {
-                summary += `${item.name} x${item.quantity} = $${(item.price * item.quantity).toFixed(2)}\n`
-            })
-            summary += `\nTotal: $${calculateTotal().toFixed(2)}`
-            Alert.alert('Receipt Updated', summary, [
-                {
-                    text: 'OK',
-                    onPress: () => setModalVisible(false),
-                },
-            ])
+            const db = getFirestore()
+            const receiptRef = doc(db, 'Receipts', selectedReceipt.id)
+            const updatedTotal = calculateTotal()
+            try {
+                await updateDoc(receiptRef, {
+                    items: items,
+                    total: updatedTotal,
+                })
+                // Update local state to reflect changes
+                setActiveReceipts(prevReceipts =>
+                    prevReceipts.map(r =>
+                        r.id === selectedReceipt.id ? { ...r, items: items, total: updatedTotal } : r
+                    )
+                )
+                setModalVisible(false)
+                await showToast(`Receipt ${selectedReceipt.receiptNumber} has been updated`)
+            } catch (error) {
+                Alert.alert('Error', 'Failed to update receipt. Please try again.')
+                console.error('Error updating receipt:', error)
+            }
         }
     }
 
+    const showToast = async (message: string) => {
+        if (Platform.OS === 'android') {
+            ToastAndroid.showWithGravity(
+                `${message}`,
+                ToastAndroid.SHORT,
+                ToastAndroid.BOTTOM,
+            );
+        } else {
+            // For iOS, use Alert
+            Alert.alert('Receiptify', message, [{ text: 'OK' }], {
+                cancelable: true,
+            });
+        }
+    };
+
+    const finalizeReceipt = async () => {
+        if (selectedReceipt) {
+            const db = getFirestore()
+            const receiptRef = doc(db, 'Receipts', selectedReceipt.id)
+            try {
+                await updateDoc(receiptRef, {
+                    status: 'complete',
+                })
+                // Remove the finalized receipt from activeReceipts list
+                setActiveReceipts(prevReceipts =>
+                    prevReceipts.filter(r => r.id !== selectedReceipt.id)
+                )
+                setModalVisible(false)
+                await showToast(`Receipt ${selectedReceipt.receiptNumber} has been finalized`)
+            } catch (error) {
+                Alert.alert('Error', 'Failed to finalize receipt. Please try again.')
+                console.error('Error finalizing receipt:', error)
+            }
+        }
+    }
+
+    const formatDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
     const renderItem = ({ item }: { item: ActiveReceipt }) => (
-        <TouchableOpacity style={styles.receiptItem} onPress={() => onReceiptPress(item)}>
-            <Text style={styles.receiptNumber}>{item.receiptNumber}</Text>
-            <Text style={styles.receiptDate}>{item.date}</Text>
-            <Text style={styles.receiptTotal}>${item.total.toFixed(2)}</Text>
+        <TouchableOpacity
+            style={styles.receiptCard}
+            onPress={() => onReceiptPress(item)}
+            activeOpacity={0.7}
+        >
+            <View style={styles.receiptHeader}>
+                <View style={styles.receiptNumberContainer}>
+                    <Ionicons name="receipt-outline" size={20} color="#2196F3" />
+                    <Text style={styles.receiptNumber}>{item.receiptNumber}</Text>
+                </View>
+                <View style={styles.receiptHeaderRight}>
+                    <Text style={styles.receiptDate}>{formatDate(item.date)}</Text>
+                    <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            deleteReceipt(item.id, item.receiptNumber);
+                        }}
+                    >
+                        <Ionicons name="trash-outline" size={20} color="#FF5252" />
+                    </TouchableOpacity>
+                </View>
+            </View>
+            <View style={styles.receiptDetails}>
+                <Text style={styles.itemsCount}>{item.items.length} items</Text>
+                <Text style={styles.receiptTotal}>₹{item.total.toFixed(2)}</Text>
+            </View>
         </TouchableOpacity>
     )
 
@@ -123,12 +301,36 @@ const ActiveReceipts = () => {
 
     return (
         <View style={styles.container}>
-            <FlatList
-                data={mockActiveReceipts}
-                keyExtractor={item => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-            />
+            <View style={styles.header}>
+                {/* <Text style={styles.headerTitle}>Active Receipts</Text> */}
+                <Text style={styles.headerSubtitle}>Manage your ongoing transactions</Text>
+            </View>
+
+            {activeReceipts.length === 0 ? (
+                <View style={styles.emptyStateContainer}>
+                    <Ionicons name="receipt-outline" size={64} color="#94a3b8" />
+                    <Text style={styles.emptyStateTitle}>No Active Receipts</Text>
+                    <Text style={styles.emptyStateMessage}>
+                        You don't have any active receipts yet.{'\n'}
+                        Create a new receipt to get started.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.emptyStateButton}
+                        onPress={() => router.push('/CreateReceipt')}
+                    >
+                        <Text style={styles.emptyStateButtonText}>Create New Receipt</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <FlatList
+                    data={activeReceipts}
+                    keyExtractor={item => item.id}
+                    renderItem={renderItem}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
+
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -137,67 +339,136 @@ const ActiveReceipts = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Edit Receipt</Text>
-                        {selectedReceipt && (
-                            <>
-                                <Text style={styles.modalText}>Receipt Number: {selectedReceipt.receiptNumber}</Text>
-                                <Text style={styles.modalText}>Date: {selectedReceipt.date}</Text>
-                                <Text style={[styles.modalText, styles.itemsHeader]}>Items:</Text>
-                                {items.map((item, index) => (
-                                    <View key={item.id} style={styles.itemRow}>
-                                        <Text style={styles.itemName}>{item.name}</Text>
-                                        <View style={styles.quantityControls}>
-                                            <TouchableOpacity onPress={() => {
-                                                if (item.quantity > 1) {
-                                                    updateQuantity(item.id, (item.quantity - 1).toString())
-                                                } else {
-                                                    removeItem(item.id)
-                                                }
-                                            }} style={styles.controlButton}>
-                                                <Text style={styles.controlButtonText}>-</Text>
-                                            </TouchableOpacity>
-                                            <TextInput
-                                                style={styles.quantityInput}
-                                                keyboardType="numeric"
-                                                value={item.quantity.toString()}
-                                                onChangeText={text => updateQuantity(item.id, text)}
-                                            />
-                                            <TouchableOpacity onPress={() => updateQuantity(item.id, (item.quantity + 1).toString())} style={styles.controlButton}>
-                                                <Text style={styles.controlButtonText}>+</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                        <Text style={styles.itemPrice}>Rs.{(item.price * item.quantity).toFixed(2)}</Text>
-                                    </View>
-                                ))}
-                                <Text style={styles.modalTotal}>Total: ${calculateTotal().toFixed(2)}</Text>
-                            </>
-                        )}
-                        <View style={styles.addItemRow}>
-                            <TextInput
-                                style={styles.addItemInput}
-                                placeholder="Item name"
-                                value={newItemName}
-                                onChangeText={setNewItemName}
-                            />
-                            <TextInput
-                                style={styles.addItemInput}
-                                placeholder="Price"
-                                keyboardType="numeric"
-                                value={newItemPrice}
-                                onChangeText={setNewItemPrice}
-                            />
-                            <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
-                                <Text style={styles.addButtonText}>Add</Text>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Edit Receipt</Text>
+                            <TouchableOpacity
+                                style={styles.modalCloseButton}
+                                onPress={() => setModalVisible(false)}
+                            >
+                                <Ionicons name="close" size={24} color="#666" />
                             </TouchableOpacity>
                         </View>
-                        <View style={styles.modalButtonsRow}>
-                            <Pressable style={styles.saveButton} onPress={saveChanges}>
-                                <Text style={styles.saveButtonText}>Save</Text>
-                            </Pressable>
-                            <Pressable style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </Pressable>
-                        </View>
+
+                        {selectedReceipt && (
+                            <>
+                                <ScrollView
+                                    style={styles.modalScrollView}
+                                    contentContainerStyle={{ flexGrow: 1 }}
+                                    showsVerticalScrollIndicator={false}
+                                >
+                                    <View style={styles.modalBody}>
+                                        <View style={styles.receiptInfo}>
+                                            <View style={styles.infoRow}>
+                                                <Text style={styles.infoLabel}>Receipt Number</Text>
+                                                <Text style={styles.infoValue}>{selectedReceipt.receiptNumber}</Text>
+                                            </View>
+                                            <View style={styles.infoRow}>
+                                                <Text style={styles.infoLabel}>Date</Text>
+                                                <Text style={styles.infoValue}>{formatDate(selectedReceipt.date)}</Text>
+                                            </View>
+                                            {selectedReceipt.timestamp && (
+                                                <View style={styles.infoRow}>
+                                                    <Text style={styles.infoLabel}>Time</Text>
+                                                    <Text style={styles.infoValue}>
+                                                        {new Date(selectedReceipt.timestamp).toLocaleTimeString()}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        <View style={styles.itemsSection}>
+                                            <Text style={styles.sectionTitle}>Items</Text>
+                                            {items.map((item) => (
+                                                <View key={item.id} style={styles.itemCard}>
+                                                    <View style={styles.itemInfo}>
+                                                        <Text style={styles.itemName}>{item.name}</Text>
+                                                        <Text style={styles.itemPrice}>₹{item.price.toFixed(2)}</Text>
+                                                    </View>
+                                                    <View style={styles.quantityControls}>
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                if (item.quantity > 1) {
+                                                                    updateQuantity(item.id, (item.quantity - 1).toString())
+                                                                } else {
+                                                                    removeItem(item.id)
+                                                                }
+                                                            }}
+                                                            style={[styles.controlButton, item.quantity === 1 && styles.controlButtonWarning]}
+                                                        >
+                                                            <Ionicons name="remove" size={16} color="#fff" />
+                                                        </TouchableOpacity>
+                                                        <TextInput
+                                                            style={styles.quantityInput}
+                                                            keyboardType="numeric"
+                                                            value={item.quantity.toString()}
+                                                            onChangeText={text => updateQuantity(item.id, text)}
+                                                        />
+                                                        <TouchableOpacity
+                                                            onPress={() => updateQuantity(item.id, (item.quantity + 1).toString())}
+                                                            style={styles.controlButton}
+                                                        >
+                                                            <Ionicons name="add" size={16} color="#fff" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </View>
+
+                                        <View style={styles.addItemSection}>
+                                            <Text style={styles.sectionTitle}>Add New Item</Text>
+                                            <View style={styles.addItemForm}>
+                                                <View style={styles.addItemInputs}>
+                                                    <CustomDropdown
+                                                        items={inventoryItems}
+                                                        selectedItemId={selectedInventoryItemId}
+                                                        onSelectItem={(item) => {
+                                                            setSelectedInventoryItemId(item.id)
+                                                            setNewItemName(item.name)
+                                                            setNewItemPrice(item.price.toString())
+                                                        }}
+                                                        placeholder="Select item"
+                                                    />
+                                                    {/* <TextInput
+                                                        style={[styles.addItemInput, styles.priceInput]}
+                                                        placeholder="Price"
+                                                        keyboardType="numeric"
+                                                        value={newItemPrice}
+                                                        onChangeText={setNewItemPrice}
+                                                        placeholderTextColor="#999"
+                                                    /> */}
+                                                </View>
+                                                <TouchableOpacity
+                                                    style={styles.addButton}
+                                                    onPress={handleAddItem}
+                                                >
+                                                    <Ionicons name="add" size={24} color="#fff" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.totalSection}>
+                                            <Text style={styles.totalLabel}>Total Amount</Text>
+                                            <Text style={styles.totalAmount}>₹{calculateTotal().toFixed(2)}</Text>
+                                        </View>
+                                    </View>
+                                </ScrollView>
+
+                                <View style={styles.modalFooter}>
+                                    <TouchableOpacity
+                                        style={[styles.footerButton, styles.saveButton]}
+                                        onPress={saveChanges}
+                                    >
+                                        <Text style={styles.buttonText}>Save Changes</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.footerButton, styles.finalizeButton]}
+                                        onPress={finalizeReceipt}
+                                    >
+                                        <Text style={styles.buttonText}>Finalize Receipt</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
                     </View>
                 </View>
             </Modal>
@@ -205,41 +476,77 @@ const ActiveReceipts = () => {
     )
 }
 
-export default ActiveReceipts
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
+        backgroundColor: '#f8f9fa',
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'ios' ? 50 : 20,
+        paddingBottom: 20,
         backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1a1a1a',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 15,
+        color: '#666',
+        textAlign: 'center',
     },
     listContent: {
-        paddingBottom: 16,
+        padding: 20,
+        gap: 16,
     },
-    receiptItem: {
-        padding: 12,
-        borderBottomColor: '#ddd',
-        borderBottomWidth: 1,
+    receiptCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    receiptHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        marginBottom: 12,
+    },
+    receiptNumberContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     receiptNumber: {
         fontSize: 16,
         fontWeight: '600',
-        flex: 2,
+        color: '#1a1a1a',
     },
     receiptDate: {
         fontSize: 14,
         color: '#666',
-        flex: 1,
-        textAlign: 'center',
+    },
+    receiptDetails: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    itemsCount: {
+        fontSize: 14,
+        color: '#666',
     },
     receiptTotal: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        flex: 1,
-        textAlign: 'right',
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#2196F3',
     },
     modalOverlay: {
         flex: 1,
@@ -250,134 +557,252 @@ const styles = StyleSheet.create({
     modalContent: {
         width: '90%',
         backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 20,
+        borderRadius: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
+        maxHeight: '90%',
     },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 12,
-        textAlign: 'center',
-    },
-    modalText: {
-        fontSize: 16,
-        marginBottom: 8,
-    },
-    itemsHeader: {
-        marginTop: 8,
-        fontWeight: '600',
-    },
-    itemRow: {
+    modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 6,
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#1a1a1a',
+    },
+    modalCloseButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+    },
+    modalScrollView: {
+        flexGrow: 1,
+    },
+    modalBody: {
+        padding: 20,
+    },
+    receiptInfo: {
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    infoLabel: {
+        fontSize: 14,
+        color: '#666',
+    },
+    infoValue: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#1a1a1a',
+    },
+    itemsSection: {
+        marginBottom: 24,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#1a1a1a',
+        marginBottom: 12,
+    },
+    itemCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#eee',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    itemInfo: {
+        flex: 1,
+        marginRight: 12,
     },
     itemName: {
-        flex: 1.5,
-        fontSize: 16,
+        fontSize: 15,
+        color: '#1a1a1a',
+        marginBottom: 2,
+    },
+    itemPrice: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#2196F3',
     },
     quantityControls: {
         flexDirection: 'row',
         alignItems: 'center',
-        flex: 1.5,
-        marginHorizontal: 8,
+        gap: 8,
     },
     controlButton: {
-        backgroundColor: '#ddd',
-        borderRadius: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        marginHorizontal: 4,
+        backgroundColor: '#2196F3',
+        borderRadius: 6,
+        width: 28,
+        height: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    controlButtonText: {
-        fontSize: 18,
-        fontWeight: 'bold',
+    controlButtonWarning: {
+        backgroundColor: '#FF5252',
     },
     quantityInput: {
-        flex: 1,
+        width: 40,
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        fontSize: 16,
+        borderColor: '#eee',
+        borderRadius: 6,
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+        fontSize: 14,
         textAlign: 'center',
-        marginHorizontal: 8,
     },
-    itemPrice: {
-        flex: 1,
-        fontSize: 16,
-        textAlign: 'right',
+    addItemSection: {
+        marginBottom: 24,
     },
-    modalButtonsRow: {
+    addItemForm: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 16,
+        gap: 12,
     },
-    saveButton: {
+    addItemInputs: {
         flex: 1,
-        backgroundColor: '#34C759',
-        borderRadius: 6,
-        paddingVertical: 12,
-        alignItems: 'center',
-        marginRight: 8,
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    cancelButton: {
-        flex: 1,
-        backgroundColor: '#FF3B30',
-        borderRadius: 6,
-        paddingVertical: 12,
-        alignItems: 'center',
-        marginLeft: 8,
-    },
-    cancelButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    addItemRow: {
         flexDirection: 'row',
-        marginTop: 16,
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        gap: 12,
     },
     addItemInput: {
-        flex: 2,
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 6,
-        fontSize: 16,
-        marginRight: 8,
+        borderColor: '#eee',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 15,
+        backgroundColor: '#fff',
+    },
+    nameInput: {
+        flex: 2,
+    },
+    priceInput: {
+        flex: 1,
     },
     addButton: {
-        flex: 1,
-        backgroundColor: '#007AFF',
-        borderRadius: 6,
-        paddingVertical: 12,
+        backgroundColor: '#2196F3',
+        borderRadius: 8,
+        width: 48,
+        height: 48,
+        justifyContent: 'center',
         alignItems: 'center',
     },
-    addButtonText: {
+    totalSection: {
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        padding: 16,
+    },
+    totalLabel: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 4,
+    },
+    totalAmount: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1a1a1a',
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        gap: 12,
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    footerButton: {
+        flex: 1,
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    saveButton: {
+        backgroundColor: '#2196F3',
+    },
+    finalizeButton: {
+        backgroundColor: '#4CAF50',
+    },
+    buttonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
     },
-    modalTotal: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginTop: 12,
-        textAlign: 'right',
+    emptyStateContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 24,
     },
-})
+    emptyStateTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#1e293b',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    emptyStateMessage: {
+        fontSize: 15,
+        color: '#64748b',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    emptyStateButton: {
+        backgroundColor: '#2196F3',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    emptyStateButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    deleteButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+    },
+    receiptHeaderRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    dropdown: {
+        position: 'absolute',
+        width: '100%',
+        zIndex: 1000,
+    },
+    dropdownItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    dropdownItemText: {
+        fontSize: 15,
+        color: '#1a1a1a',
+    },
+});
+
+export default ActiveReceipts;

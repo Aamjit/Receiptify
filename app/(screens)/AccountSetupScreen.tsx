@@ -1,74 +1,157 @@
+import { collection, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
+import Avatar from '@/components/Avatar';
+import { supabase } from '@/lib/supabase';
+import { ImagePickerAsset } from 'expo-image-picker'
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, StatusBar, ToastAndroid } from 'react-native';
 
-const AccountSetupScreen: React.FC = () => {
+const AccountSetupScreen = () => {
     const [formData, setFormData] = useState({
         name: '',
         address: '',
+        phoneNumber: '',
         gstin: '',
-        email: '',
         businessType: '',
         panNumber: '',
         website: '',
         otherInfo: '',
-        businessLogo: null as string | null,
+        businessLogo: null,
     });
+    const [loading, setLoading] = useState({ state: false, text: "" });
+    const [accountImage, setAccountImage] = useState<ImagePickerAsset | null>(null);
     const router = useRouter();
-
-    // Placeholder function for picking an image
-    const handlePickLogo = () => {
-        Alert.alert('Pick Logo', 'Image picker functionality to be implemented.');
-    };
+    const userData = getAuth().currentUser
 
     const handleChange = (field: string, value: string) => {
+        switch (field) {
+            case "phoneNumber":
+                if (!value.match("^[0-9]*$")) {
+                    return;
+                }
+                break;
+            default:
+                break;
+        }
         setFormData(prev => ({
             ...prev,
             [field]: value,
         }));
     };
 
-    const handleSubmit = () => {
-        // if (!formData.name.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your name.');
-        //     return;
-        // }
-        // if (!formData.address.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your address.');
-        //     return;
-        // }
-        // if (!formData.gstin.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your GSTIN.');
-        //     return;
-        // }
-        // if (!formData.email.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your email address.');
-        //     return;
-        // }
-        // if (!formData.businessType.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your business type or category.');
-        //     return;
-        // }
-        // if (!formData.panNumber.trim()) {
-        //     Alert.alert('Validation Error', 'Please enter your PAN number.');
-        //     return;
-        // }
-        // For now, just show an alert with the entered details
-        Alert.alert(
-            'Account Setup Submitted',
-            `Name: ${formData.name}\nAddress: ${formData.address}\nGSTIN: ${formData.gstin}\nEmail: ${formData.email}\nBusiness Type: ${formData.businessType}\nPAN Number: ${formData.panNumber}\nWebsite: ${formData.website}\nOther Info: ${formData.otherInfo}\nLogo: ${formData.businessLogo ? 'Selected' : 'Not selected'}`
-        );
+    const checkFormValidation = () => {
+        const requiredFields: (keyof typeof formData)[] = ['name', 'address', 'phoneNumber', 'businessType'];
+        for (const field of requiredFields) {
+            if (!formData[field]) {
+                Alert.alert('Validation Error', `${field.replace(/([A-Z])/g, ' $1')} is required.`);
+                return false;
+            }
+        }
 
-        router.replace("/(tabs)/home");
+        if (formData.phoneNumber.length < 10) {
+            Alert.alert('Validation Error', 'Phone number must be at least 10 digits.');
+            return false;
+        }
+
+        if (formData.gstin.length !== 15) {
+            Alert.alert('Validation Error', 'GSTIN must be exactly 15 characters.');
+            return false;
+        }
+
+        if (formData.panNumber.length !== 10) {
+            Alert.alert('Validation Error', 'PAN Number must be exactly 10 characters.');
+            return false;
+        }
+
+        return true;
+    }
+
+    const handleSubmit = async () => {
+        setLoading({ state: true, text: "Submitting" })
+        try {
+
+            if (!checkFormValidation()) {
+                return
+            }
+
+            // Check if the image size is less than 5MB
+            if (accountImage?.fileSize && accountImage?.fileSize > 3 * 1024 * 1024) {
+                Alert.alert('Image Size Error', 'Business logo must be less than 3MB.');
+                return;
+            }
+
+            // upload user image to supabase storage
+            const arraybuffer = await fetch(accountImage?.uri ?? '').then((res) => res.arrayBuffer())
+
+            const fileExt = accountImage?.uri?.split('.').pop()?.toLowerCase() ?? 'jpeg'
+            const path = `${userData?.uid}/${userData?.uid}.${fileExt}`
+            const { data, error: uploadError } = arraybuffer && await supabase.storage
+                .from('receiptify')
+                .upload(path, arraybuffer, {
+                    contentType: accountImage?.mimeType ?? 'image/jpeg',
+                })
+
+            if (uploadError) {
+                Alert.alert('Error', 'Failed to upload profile image. Please try again.\n' + uploadError.message);
+            }
+
+            const imageUrl = supabase.storage.from('receiptify').getPublicUrl(data?.path ?? '');
+
+            // Update user document in Firestore to add the image URL
+            if (!userData?.uid) {
+                Alert.alert('Error', 'User not authenticated.');
+                return;
+            }
+            const usersCollection = collection(getFirestore(), 'Users');
+            const q = query(usersCollection, where('userId', '==', userData.uid));
+            const querySnapshot = await getDocs(q);
+            if (querySnapshot.empty) {
+                Alert.alert('Error', 'User document not found.');
+                return;
+            }
+            const userDocRef = querySnapshot.docs[0].ref;
+            await updateDoc(userDocRef, {
+                // name: formData.name || '',
+                // phoneNumber: formData.phoneNumber || '',
+                // address: formData.address || '',
+                // gstin: formData.gstin || '',
+                // businessType: formData.businessType || '',
+                // panNumber: formData.panNumber || '',
+                // website: formData.website || '',
+                // otherInfo: formData.otherInfo || '',
+                businessLogo: imageUrl.data.publicUrl || '',
+            })
+                .then(() => {
+                    // console.log("User document updated with profile picture URL");
+                    ToastAndroid.show('Account setup submitted successfully.', ToastAndroid.LONG);
+                    router.push("/home");
+                })
+                .catch((error) =>
+                    console.error("Error updating user document:", error)
+                );
+
+        } catch (error) {
+            console.error('Error during account setup:', error);
+            Alert.alert('Error', 'Failed to set up account. Please try again.');
+        } finally {
+            setLoading({ state: false, text: '' });
+        }
     };
 
-    return (
-        <ScrollView contentContainerStyle={styles.container}>
+    return loading.state ?
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={{ marginTop: 10 }}>{loading.text}...</Text>
+        </View>
+        :
+        (<ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Setup your Account</Text>
 
             <TextInput
                 style={styles.input}
-                placeholder="Name"
+                placeholder="Business Name"
+                placeholderTextColor="#999999"
                 value={formData.name}
                 onChangeText={value => handleChange('name', value)}
                 autoCapitalize="words"
@@ -77,6 +160,7 @@ const AccountSetupScreen: React.FC = () => {
             <TextInput
                 style={styles.input}
                 placeholder="Address"
+                placeholderTextColor="#999999"
                 value={formData.address}
                 onChangeText={value => handleChange('address', value)}
                 multiline
@@ -85,7 +169,17 @@ const AccountSetupScreen: React.FC = () => {
 
             <TextInput
                 style={styles.input}
+                placeholder="Phone Number"
+                keyboardType="phone-pad"
+                placeholderTextColor="#999999"
+                value={formData.phoneNumber}
+                onChangeText={value => handleChange('phoneNumber', value)}
+            />
+
+            <TextInput
+                style={styles.input}
                 placeholder="GSTIN"
+                placeholderTextColor="#999999"
                 value={formData.gstin}
                 onChangeText={value => handleChange('gstin', value)}
                 autoCapitalize="characters"
@@ -94,16 +188,8 @@ const AccountSetupScreen: React.FC = () => {
 
             <TextInput
                 style={styles.input}
-                placeholder="Email Address"
-                value={formData.email}
-                onChangeText={value => handleChange('email', value)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-            />
-
-            <TextInput
-                style={styles.input}
                 placeholder="Business Type or Category"
+                placeholderTextColor="#999999"
                 value={formData.businessType}
                 onChangeText={value => handleChange('businessType', value)}
                 autoCapitalize="words"
@@ -112,6 +198,7 @@ const AccountSetupScreen: React.FC = () => {
             <TextInput
                 style={styles.input}
                 placeholder="PAN Number"
+                placeholderTextColor="#999999"
                 value={formData.panNumber}
                 onChangeText={value => handleChange('panNumber', value)}
                 autoCapitalize="characters"
@@ -121,22 +208,24 @@ const AccountSetupScreen: React.FC = () => {
             <TextInput
                 style={styles.input}
                 placeholder="Website or Social Media Links"
+                placeholderTextColor="#999999"
                 value={formData.website}
                 onChangeText={value => handleChange('website', value)}
                 autoCapitalize="none"
             />
 
-            <TouchableOpacity style={styles.logoPicker} onPress={handlePickLogo}>
-                {formData.businessLogo ? (
-                    <Image source={{ uri: formData.businessLogo }} style={styles.logoImage} />
-                ) : (
-                    <Text style={styles.logoPickerText}>Pick Business Logo</Text>
-                )}
-            </TouchableOpacity>
+            <Avatar
+                size={{ width: 400, height: 150 }}
+                url={accountImage?.uri ?? ''}
+                onImageSelect={(image) => {
+                    setAccountImage(image)
+                }}
+            />
 
             <TextInput
                 style={[styles.input, styles.otherInfoInput]}
                 placeholder="Other Business Information"
+                placeholderTextColor="#999999"
                 value={formData.otherInfo}
                 onChangeText={value => handleChange('otherInfo', value)}
                 multiline
@@ -144,13 +233,11 @@ const AccountSetupScreen: React.FC = () => {
             />
 
             <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-                <Text style={styles.buttonText}>Finish</Text>
+                <Text style={styles.buttonText}>Create Account</Text>
             </TouchableOpacity>
         </ScrollView>
-    );
+        );
 };
-
-import { Platform, StatusBar } from 'react-native';
 
 const styles = StyleSheet.create({
     container: {
@@ -158,7 +245,7 @@ const styles = StyleSheet.create({
         paddingInline: 40,
         backgroundColor: '#fff',
         paddingBottom: 20,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 0) + 20) : 20,
     },
     title: {
         fontSize: 24,
