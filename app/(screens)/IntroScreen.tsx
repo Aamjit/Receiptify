@@ -53,7 +53,7 @@ export default function IntroScreen() {
         try {
             // await AsyncStorage.setItem('hasSeenIntro', 'true');
             AsyncStorageIntro.setItem("true")
-            router.replace('/AuthScreen1');
+            router.replace('/AuthScreen');
         } catch (e) {
             console.error('Error setting intro flag', e);
         }

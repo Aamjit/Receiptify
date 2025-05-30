@@ -3,11 +3,12 @@ import { getAuth } from '@react-native-firebase/auth';
 import { collection, getDocs, getFirestore, query, where, Timestamp } from '@react-native-firebase/firestore';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DatePicker from '../components/DatePicker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { generateHTMLForReceipt } from '../../helpers/generateHTMLForReceipt';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 type ReceiptItem = {
     name: string
@@ -46,6 +47,7 @@ const PastReceipts = () => {
     const [selectedDate, setSelectedDate] = useState(new Date())
     const [isLoading, setIsLoading] = useState({ state: false, message: '' })
     const [userData, setUserData] = useState<any>(null)
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const router = useRouter()
 
     useEffect(() => {
@@ -101,7 +103,7 @@ const PastReceipts = () => {
                 receiptsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
                 setPastReceipts(receiptsData)
             } catch (error) {
-                Alert.alert('Error', 'Failed to fetch past receipts.')
+                setAlert({ visible: true, title: 'Error', message: 'Failed to fetch past receipts.', actions: [{ text: 'OK' }] });
                 console.error('Error fetching past receipts:', error)
             } finally {
                 setIsLoading({ state: false, message: '' })
@@ -147,7 +149,7 @@ const PastReceipts = () => {
             const { uri } = await Print.printToFileAsync({ html });
             return uri;
         } catch (error) {
-            Alert.alert('Error', 'Failed to generate PDF.');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to generate PDF.', actions: [{ text: 'OK' }] });
             console.error('PDF generation error:', error);
             return null;
         } finally {
@@ -166,14 +168,14 @@ const PastReceipts = () => {
                         mimeType: 'application/pdf',
                         dialogTitle: 'Share Receipt PDF',
                     });
-                    Alert.alert('Success', 'Report generated successfully');
+                    setAlert({ visible: true, title: 'Success', message: 'Report generated successfully', actions: [{ text: 'OK' }] });
                 } catch (error) {
-                    Alert.alert('Error', 'Failed to share PDF.');
+                    setAlert({ visible: true, title: 'Error', message: 'Failed to share PDF.', actions: [{ text: 'OK' }] });
                     console.error('PDF sharing error:', error);
                 }
             }
         } catch (error) {
-            Alert.alert('Error', 'Failed to prepare PDF for sharing.');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to prepare PDF for sharing.', actions: [{ text: 'OK' }] });
             console.error('PDF preparation error:', error);
         } finally {
             setIsLoading({ state: false, message: '' });
@@ -333,6 +335,14 @@ const PastReceipts = () => {
                     </View>
                 </View>
             </Modal>
+
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
+            />
         </View>
     )
 }

@@ -2,7 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, Dimensions, FlatList, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 interface Feature {
     key: string;
@@ -32,6 +33,7 @@ const statusBarHeight = Platform.OS === 'android' ? StatusBar.currentHeight ?? 0
 
 const HomeScreen: React.FC = () => {
     const router = useRouter();
+    const [alert, setAlert] = React.useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
     const renderItem = ({ item }: { item: Feature }) => (
         <TouchableOpacity
@@ -76,11 +78,12 @@ const HomeScreen: React.FC = () => {
                 router.navigate("/ReportScreen")
                 break;
             default:
-                Alert.alert(
-                    "Feature Locked 🔒",
-                    "This feature is coming soon! We're working hard to bring it to you.",
-                    [{ text: "OK", style: "default" }]
-                );
+                setAlert({
+                    visible: true,
+                    title: 'Feature Locked 🔒',
+                    message: "This feature is coming soon! We're working hard to bring it to you.",
+                    actions: [{ text: 'OK' }]
+                });
                 break;
         }
     }
@@ -99,6 +102,13 @@ const HomeScreen: React.FC = () => {
                 columnWrapperStyle={styles.row}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+            />
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
             />
         </View>
     );

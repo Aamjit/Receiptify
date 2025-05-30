@@ -3,7 +3,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { getAuth } from '@react-native-firebase/auth';
 import { collection, doc, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Modal, NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { Animated, Modal, NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 interface InventoryItem {
     id: string;
@@ -26,6 +27,8 @@ const ManageInventory = () => {
     const [loading, setLoading] = useState(true);
     const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
     const [isFormVisible, setIsFormVisible] = useState(true);
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
+    const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
     const animatedHeight = useRef(new Animated.Value(1)).current;
     const lastScrollY = useRef(0);
     const scrollThreshold = 10; // minimum scroll distance to trigger collapse
@@ -38,7 +41,7 @@ const ManageInventory = () => {
         try {
             const userEmail = getAuth().currentUser?.email;
             if (!userEmail) {
-                Alert.alert('Error', 'User not authenticated');
+                setAlert({ visible: true, title: 'Error', message: 'User not authenticated', actions: [{ text: 'OK' }] });
                 return;
             }
 
@@ -54,7 +57,7 @@ const ManageInventory = () => {
             setLoading(false);
         } catch (error) {
             console.error('Error fetching inventory:', error);
-            Alert.alert('Error', 'Failed to fetch inventory');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to fetch inventory', actions: [{ text: 'OK' }] });
             setLoading(false);
         }
     };
@@ -63,7 +66,7 @@ const ManageInventory = () => {
         try {
             const userEmail = getAuth().currentUser?.email;
             if (!userEmail) {
-                Alert.alert('Error', 'User not authenticated');
+                setAlert({ visible: true, title: 'Error', message: 'User not authenticated', actions: [{ text: 'OK' }] });
                 return;
             }
 
@@ -77,11 +80,11 @@ const ManageInventory = () => {
                     inventory: newInventory
                 });
             } else {
-                Alert.alert('Error', 'User document not found');
+                setAlert({ visible: true, title: 'Error', message: 'User document not found', actions: [{ text: 'OK' }] });
             }
         } catch (error) {
             console.error('Error updating inventory:', error);
-            Alert.alert('Error', 'Failed to update inventory');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to update inventory', actions: [{ text: 'OK' }] });
         }
     };
 
@@ -89,22 +92,19 @@ const ManageInventory = () => {
         if (Platform.OS === 'android') {
             ToastAndroid.show(message, ToastAndroid.SHORT);
         } else {
-            // For iOS, use a temporary alert
-            Alert.alert('Success', message, [{ text: 'OK' }], {
-                cancelable: true,
-            });
+            setAlert({ visible: true, title: 'Success', message, actions: [{ text: 'OK' }] });
         }
     };
 
     const addItem = async () => {
         if (!name || !price || !category || !availability) {
-            Alert.alert('Error', 'Please fill all fields');
+            setAlert({ visible: true, title: 'Error', message: 'Please fill all fields', actions: [{ text: 'OK' }] });
             return;
         }
 
         const numericPrice = parseFloat(price);
         if (isNaN(numericPrice)) {
-            Alert.alert('Error', 'Please enter a valid price');
+            setAlert({ visible: true, title: 'Error', message: 'Please enter a valid price', actions: [{ text: 'OK' }] });
             return;
         }
 
@@ -140,7 +140,7 @@ const ManageInventory = () => {
             setAvailability(AVAILABILITY_OPTIONS[0]);
         } catch (error) {
             console.error('Error adding/updating item:', error);
-            Alert.alert('Error', 'Failed to save item');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to save item', actions: [{ text: 'OK' }] });
         }
     };
 
@@ -148,39 +148,10 @@ const ManageInventory = () => {
         try {
             const itemToRemove = inventory.find(item => item.id === id);
             if (!itemToRemove) return;
-
-            Alert.alert(
-                'Confirm Deletion',
-                `Are you sure you want to remove ${itemToRemove.name}?`,
-                [
-                    {
-                        text: 'Cancel',
-                        style: 'cancel'
-                    },
-                    {
-                        text: 'Remove',
-                        style: 'destructive',
-                        onPress: async () => {
-                            const newItems = inventory.filter(item => item.id !== id);
-                            await updateInventoryInFirebase(newItems);
-                            setInventory(newItems);
-
-                            if (editingId === id) {
-                                setEditingId(null);
-                                setName('');
-                                setPrice('');
-                                setCategory('');
-                                setAvailability(AVAILABILITY_OPTIONS[0]);
-                            }
-
-                            showToast(`${itemToRemove.name} has been removed`);
-                        }
-                    }
-                ]
-            );
+            setPendingRemove({ id, name: itemToRemove.name });
         } catch (error) {
             console.error('Error removing item:', error);
-            Alert.alert('Error', 'Failed to remove item');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to remove item', actions: [{ text: 'OK' }] });
         }
     };
 
@@ -408,6 +379,41 @@ const ManageInventory = () => {
                     </View>
                 </TouchableOpacity>
             </Modal>
+
+            <CustomAlertModal
+                visible={!!pendingRemove}
+                title="Confirm Deletion"
+                message={pendingRemove ? `Are you sure you want to remove ${pendingRemove.name}?` : ''}
+                actions={[
+                    { text: 'Cancel', style: 'cancel', onPress: () => setPendingRemove(null) },
+                    {
+                        text: 'Remove', style: 'destructive', onPress: async () => {
+                            if (!pendingRemove) return;
+                            const { id, name } = pendingRemove;
+                            const newItems = inventory.filter(item => item.id !== id);
+                            await updateInventoryInFirebase(newItems);
+                            setInventory(newItems);
+                            if (editingId === id) {
+                                setEditingId(null);
+                                setName('');
+                                setPrice('');
+                                setCategory('');
+                                setAvailability(AVAILABILITY_OPTIONS[0]);
+                            }
+                            setPendingRemove(null);
+                            showToast(`${name} has been removed`);
+                        }
+                    }
+                ]}
+                onRequestClose={() => setPendingRemove(null)}
+            />
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
+            />
         </View>
     );
 };

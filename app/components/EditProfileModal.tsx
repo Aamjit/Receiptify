@@ -46,16 +46,15 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 0.5,
       legacy: true, // Use legacy behavior for better compatibility
     });
-    console.log(result);
 
     if (!result.canceled && result.assets && result.assets[0]) {
       // Compress the image before preview/upload
       const compressed = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
-        [{ resize: { width: 640 } }],
+        [{ resize: { width: 580 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
       setLogoPreview(compressed.uri);
@@ -254,7 +253,7 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     marginTop: 18,
     gap: 12,
   },

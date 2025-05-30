@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, GestureResponderEvent } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, GestureResponderEvent } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { collection, query, where, getDocs, getFirestore, Timestamp } from '@react-native-firebase/firestore';
 import { LineChart } from "react-native-chart-kit";
@@ -9,6 +9,7 @@ import * as Sharing from 'expo-sharing';
 import { generateHTMLForReport } from '../../helpers/generateHTMLForReport';
 import DateRangePicker from '../components/DateRangePicker';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 type ReceiptItem = {
     id: string;
@@ -71,6 +72,7 @@ export default function Report() {
     const [dailySales, setDailySales] = useState<{ date: string; total: number }[]>([]);
     const [exporting, setExporting] = useState(false);
     const [userData, setUserDate] = useState<any>();
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
     const fetchReceipts = async () => {
         try {
@@ -183,19 +185,11 @@ export default function Report() {
             }
         } catch (error) {
             console.error('Error fetching user data:', error);
-            Alert.alert('Error', 'Failed to fetch user data');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to fetch user data', actions: [{ text: 'OK' }] });
         } finally {
             setLoading({ state: false, message: '' });
         }
     }
-
-    useEffect(() => {
-        fetchReceipts();
-    }, [selectedRange]);
-
-    useEffect(() => {
-        fetchUserData();
-    }, []);
 
     const generateHTML = () => {
 
@@ -230,7 +224,7 @@ export default function Report() {
             return uri;
         } catch (error) {
             console.error('Error generating PDF:', error);
-            Alert.alert('Error', 'Failed to generate PDF report');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to generate PDF report', actions: [{ text: 'OK' }] });
             return null;
         } finally {
             setExporting(false);
@@ -272,15 +266,23 @@ export default function Report() {
                         dialogTitle: 'Save PDF Report'
                     });
                 }
-                Alert.alert('Success', 'Report generated successfully');
+                setAlert({ visible: true, title: 'Success', message: 'Report generated successfully', actions: [{ text: 'OK' }] });
             }
         } catch (error) {
             console.error('Error downloading report:', error);
-            Alert.alert('Error', 'Failed to download report');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to download report', actions: [{ text: 'OK' }] });
         } finally {
             setLoading({ state: false, message: '' });
         }
     };
+
+    useEffect(() => {
+        fetchReceipts();
+    }, [selectedRange]);
+
+    useEffect(() => {
+        fetchUserData();
+    }, []);
 
     if (loading.state) {
         return (
@@ -304,7 +306,7 @@ export default function Report() {
                         setSelectedRange({ ...selectedRange, endDate: date });
                     }}
                     disableFutureDates={true}
-                    onError={msg => Alert.alert('Date Error', msg)}
+                    onError={msg => setAlert({ visible: true, title: 'Date Error', message: msg, actions: [{ text: 'OK' }] })}
                 />
             </View>
 
@@ -317,7 +319,7 @@ export default function Report() {
                             // @ts-ignore
                             import('react-native').then(RN => RN.ToastAndroid.show('Email Report is currently unavailable.', RN.ToastAndroid.SHORT));
                         } else {
-                            Alert.alert('Unavailable', 'Email Report is currently unavailable.');
+                            setAlert({ visible: true, title: 'Unavailable', message: 'Email Report is currently unavailable.', actions: [{ text: 'OK' }] });
                         }
                     }}
                     disabled={false}
@@ -400,6 +402,14 @@ export default function Report() {
                     </ScrollView>
                 </View>
             )}
+
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
+            />
         </ScrollView>
     );
 }

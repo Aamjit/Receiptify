@@ -4,7 +4,8 @@ import { collection, doc, FirebaseFirestoreTypes, getDocs, getFirestore, query, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import CustomAlertModal from '@/components/CustomAlertModal';
 import EditProfileModal from '../components/EditProfileModal';
 
 const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> = ({ visible, onClose }) => {
@@ -12,14 +13,15 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
     const handleChange = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
-            Alert.alert('Error', 'Please fill all fields.');
+            setAlert({ visible: true, title: 'Error', message: 'Please fill all fields.', actions: [{ text: 'OK' }] });
             return;
         }
         if (newPassword !== confirmPassword) {
-            Alert.alert('Error', 'New passwords do not match.');
+            setAlert({ visible: true, title: 'Error', message: 'New passwords do not match.', actions: [{ text: 'OK' }] });
             return;
         }
         setLoading(true);
@@ -30,10 +32,9 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
             const credential = EmailAuthProvider.credential(user.email, currentPassword);
             await reauthenticateWithCredential(user, credential);
             await updatePassword(user, newPassword);
-            Alert.alert('Success', 'Password changed successfully.');
-            onClose();
+            setAlert({ visible: true, title: 'Success', message: 'Password changed successfully.', actions: [{ text: 'OK', onPress: onClose }] });
         } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to change password.');
+            setAlert({ visible: true, title: 'Error', message: err.message || 'Failed to change password.', actions: [{ text: 'OK' }] });
         } finally {
             setLoading(false);
             setCurrentPassword('');
@@ -72,7 +73,7 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
                         onChangeText={setConfirmPassword}
                     />
                     {loading ? <ActivityIndicator size="large" color="#3b82f6" style={{ marginVertical: 10 }} /> : null}
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 10 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 10 }}>
                         <TouchableOpacity style={{ backgroundColor: '#e5e7eb', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8, marginRight: 8 }} onPress={onClose} disabled={loading}>
                             <Text style={{ color: '#3b82f6', fontWeight: '600', fontSize: 15 }}>Cancel</Text>
                         </TouchableOpacity>
@@ -82,6 +83,13 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
                     </View>
                 </View>
             </View>
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
+            />
         </Modal>
     );
 };
@@ -92,6 +100,7 @@ const AccountScreen: React.FC = () => {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [changePasswordVisible, setChangePasswordVisible] = useState(false);
     const [imageLoading, setImageLoading] = useState(false);
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -133,12 +142,12 @@ const AccountScreen: React.FC = () => {
                     ...(logoUrl ? { businessLogo: logoUrl } : {}),
                 });
                 setUser({ ...user, name: newName, address: newAddress, panNumber: newPan, gstin: newGstin, phoneNumber: newPhone, website: newWebsite, ...(logoUrl ? { businessLogo: logoUrl } : {}) });
-                Alert.alert('Success', 'Profile updated successfully.');
+                setAlert({ visible: true, title: 'Success', message: 'Profile updated successfully.', actions: [{ text: 'OK' }] });
             } else {
-                Alert.alert('Error', 'User document not found.');
+                setAlert({ visible: true, title: 'Error', message: 'User document not found.', actions: [{ text: 'OK' }] });
             }
         } catch (error) {
-            Alert.alert('Error', 'Failed to update profile.');
+            setAlert({ visible: true, title: 'Error', message: 'Failed to update profile.', actions: [{ text: 'OK' }] });
             console.error('Error updating profile:', error);
         } finally {
             setEditModalVisible(false);
@@ -150,15 +159,10 @@ const AccountScreen: React.FC = () => {
     };
 
     const handleLogout = async () => {
-        Alert.alert('Logout', 'Logout successful.');
+        setAlert({ visible: true, title: 'Logout', message: 'Logout successful.', actions: [{ text: 'OK' }] });
         setUser(null);
         await signOut(getAuth());
-        router.replace({
-            pathname: '/AuthScreen',
-            params: {
-                reset: 'true'
-            }
-        });
+        router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
     };
 
     return (
@@ -229,6 +233,13 @@ const AccountScreen: React.FC = () => {
                 onCancel={() => setEditModalVisible(false)}
             />
             <ChangePasswordModal visible={changePasswordVisible} onClose={() => setChangePasswordVisible(false)} />
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
+            />
         </View>
     );
 };
