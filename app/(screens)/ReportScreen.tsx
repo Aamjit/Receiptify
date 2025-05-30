@@ -61,8 +61,6 @@ const dateRanges: DateRange[] = [
     }
 ];
 
-
-
 export default function Report() {
     const [receipts, setReceipts] = useState<Receipt[]>([]);
     const [loading, setLoading] = useState({ state: false, message: '' });
@@ -205,7 +203,7 @@ export default function Report() {
         const businessInfo = {
             name: userData?.name || "Partnered with Receiptify",
             address: userData?.address || "",
-            phone: userData?.phone || "",
+            phone: userData?.phoneNumber || "",
             email: userData?.email || "",
             website: userData?.website || "",
             logo: userData?.businessLogo, // Use your logo asset here

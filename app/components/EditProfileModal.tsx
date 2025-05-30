@@ -135,6 +135,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={name}
               onChangeText={setName}
               placeholder="Enter your name"
+              placeholderTextColor={'#9ca3af'}
               autoCapitalize="words"
             />
             <Text style={styles.label}>Address</Text>
@@ -143,6 +144,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={address}
               onChangeText={setAddress}
               placeholder="Enter your address"
+              placeholderTextColor={'#9ca3af'}
               multiline
             />
             <Text style={styles.label}>PAN Number</Text>
@@ -151,6 +153,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={panNumber}
               onChangeText={setPanNumber}
               placeholder="Enter PAN Number"
+              placeholderTextColor={'#9ca3af'}
               autoCapitalize="characters"
               maxLength={10}
             />
@@ -160,6 +163,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={gstin}
               onChangeText={setGstin}
               placeholder="Enter GSTIN"
+              placeholderTextColor={'#9ca3af'}
               autoCapitalize="characters"
               maxLength={15}
             />
@@ -170,6 +174,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               onChangeText={setPhoneNumber}
               placeholder="Enter Phone Number"
               keyboardType="phone-pad"
+              placeholderTextColor={'#9ca3af'}
               maxLength={15}
             />
             <Text style={styles.label}>Website</Text>
@@ -178,6 +183,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={website}
               onChangeText={setWebsite}
               placeholder="Enter Website"
+              placeholderTextColor={'#9ca3af'}
               autoCapitalize="none"
             />
             <View style={[styles.logoSection, { marginVertical: 12 }]}>

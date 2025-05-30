@@ -20,7 +20,7 @@ export default function Index() {
         checkIntro();
     }, []);
 
-    return introSeen && <Redirect href={introSeen == "true" ? getAuth().currentUser ? "/home" : "/(screens)/AuthScreen" : "/(screens)/IntroScreen"} />;
+    return <Redirect href={introSeen == "true" ? getAuth().currentUser ? "/home" : "/(screens)/AuthScreen" : "/(screens)/IntroScreen"} />;
 
     // return <Redirect href={"/(screens)/AccountSetupScreen"} />;
     // return <Redirect href={introSeen == "true" ? "/IntroScreen" : "/IntroScreen"} />;

@@ -49,6 +49,20 @@ const PastReceipts = () => {
     const router = useRouter()
 
     useEffect(() => {
+        const fetchUserData = async () => {
+            const user = getAuth().currentUser;
+            if (user) {
+                const db = getFirestore();
+                const userDoc = await getDocs(query(collection(db, 'Users'), where('userId', '==', user.uid)));
+                if (!userDoc.empty) {
+                    setUserData(userDoc.docs[0].data());
+                }
+            }
+        }
+        fetchUserData()
+    }, [])
+
+    useEffect(() => {
         const fetchPastReceipts = async () => {
             setIsLoading({ state: true, message: 'Loading past receipts...' })
             try {
@@ -95,17 +109,7 @@ const PastReceipts = () => {
         }
         fetchPastReceipts()
         // Get user data from firestore
-        const fetchUserData = async () => {
-            const user = getAuth().currentUser;
-            if (user) {
-                const db = getFirestore();
-                const userDoc = await getDocs(query(collection(db, 'Users'), where('userId', '==', user.uid)));
-                if (!userDoc.empty) {
-                    setUserData(userDoc.docs[0].data());
-                }
-            }
-        }
-        fetchUserData()
+
     }, [selectedDate])
 
     const onReceiptPress = (receipt: PastReceipt) => {

@@ -247,16 +247,16 @@ export function generateHTMLForReport({
             </head>
             <body>
                 <div class="container" style="padding-left: 2.5rem; padding-right: 2.5rem;">
-                    <div class="header" style="display: flex; flex-direction: column; align-items: center; gap: 8px; border-bottom: 2px solid var(--primary-color); padding-bottom: 1.2rem; margin-bottom: 1.5rem; background: none;">
-                        ${businessInfo?.logo ? `<img src="${businessInfo.logo}" alt="Business Logo" style="height: 54px; object-fit: contain; margin-bottom: 2px; margin-right: 0; box-shadow: 0 1px 4px rgba(33,150,243,0.08); border-radius: 100px; border-width: 2px; border-color: rgb(229, 231, 235) />` : ''}
-                        <div style="text-align: center; width: 100%;">
+                    <div class="header" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border-bottom: 2px solid var(--primary-color); padding-bottom: 1.2rem; margin-bottom: 1.5rem; background: none;">
+                        ${businessInfo?.logo ? `<img src="${businessInfo.logo}" alt="Business Logo" style="height: 54px; object-fit: contain; margin-bottom: 2px; margin-right: 0; box-shadow: 0 1px 4px rgba(33,150,243,0.08); border-radius: 100px; border-width: 2px; border-color: rgb(229, 231, 235)" />` : ''}
+                        <div style="text-align: center; width: 100%; line-height: 1.2; margin-bottom: 0.1rem;">
                             <span style="font-weight:700; color: var(--primary-color); font-size: 1.25rem; letter-spacing: 0.01em;">${businessInfo?.name || ''}</span><br/>
                             <span style="font-size:12px; color:#555;">${businessInfo?.address || ''}</span><br/>
-                            <span style="font-size:12px; color:#555;">Phone: +91-${businessInfo?.phone || ''}</span><br/>
+                            ${businessInfo?.phone ? '<span style= "font-size:12px; color:#555;" > Phone: +91-' + businessInfo?.phone + '</span><br/ >' : ''}
                             <span style="font-size:12px; color:#555;">Email: ${businessInfo?.email || ''}</span><br/>
-                            ${businessInfo?.website ? `<span style="font-size:12px; color:#555;">Website: ${businessInfo.website}</span>` : ''}
+                            ${businessInfo?.website ? `<span style="font-size:12px; color:#555;">Website: <a href='${businessInfo.website}'>${businessInfo.website}</a></span>` : ''}
                         </div>
-                        <div style="width: 100%; text-align: center; margin-top: 0.5rem;">
+                        <div style="width: 100%; text-align: center; margin-top: 0.3rem;">
                             <h1 style="color: var(--primary-color); margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.01em; text-shadow: none;">Sales Report</h1>
                             <p style="color: #6b7280; font-size: 1rem; margin: 0.2rem 0 0 0; font-weight: 500;">${selectedRangeLabel}</p>
                         </div>

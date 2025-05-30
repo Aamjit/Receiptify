@@ -48,7 +48,7 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
                 <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 24, width: '90%' }}>
                     <Text style={{ fontSize: 20, fontWeight: '700', marginBottom: 18, color: '#1e293b', textAlign: 'center' }}>Change Password</Text>
                     <TextInput
-                        style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 12, fontSize: 15, marginBottom: 10, backgroundColor: '#f8fafc' }}
+                        style={styles.changePassworrdInput}
                         placeholder="Current Password"
                         placeholderTextColor="#999999"
                         secureTextEntry
@@ -56,7 +56,7 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
                         onChangeText={setCurrentPassword}
                     />
                     <TextInput
-                        style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 12, fontSize: 15, marginBottom: 10, backgroundColor: '#f8fafc' }}
+                        style={styles.changePassworrdInput}
                         placeholder="New Password"
                         placeholderTextColor="#999999"
                         secureTextEntry
@@ -64,7 +64,7 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
                         onChangeText={setNewPassword}
                     />
                     <TextInput
-                        style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 12, fontSize: 15, marginBottom: 10, backgroundColor: '#f8fafc' }}
+                        style={styles.changePassworrdInput}
                         placeholder="Confirm New Password"
                         placeholderTextColor="#999999"
                         secureTextEntry
@@ -154,7 +154,7 @@ const AccountScreen: React.FC = () => {
         setUser(null);
         await signOut(getAuth());
         router.replace({
-            pathname: '/AuthScreen1',
+            pathname: '/AuthScreen',
             params: {
                 reset: 'true'
             }
@@ -322,7 +322,17 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 6,
         elevation: 4,
-    }
+    },
+    changePassworrdInput: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 15,
+        marginBottom: 10,
+        backgroundColor: '#f8fafc',
+        color: '#1e293b',
+    },
 });
 
 export default AccountScreen;
