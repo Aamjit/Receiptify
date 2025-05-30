@@ -13,9 +13,6 @@ if (!googleServicesBase64) {
 // Decode the base64 string
 const googleServicesJson = Buffer.from(googleServicesBase64, 'base64').toString('utf8');
 
-console.log('Decoded GOOGLE_SERVICES_JSON:', googleServicesJson);
-
-
 // Ensure the android/app directory exists
 const androidAppDir = path.join(__dirname, 'android', 'app');
 if (!fs.existsSync(androidAppDir)) {
