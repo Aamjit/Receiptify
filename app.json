@@ -59,6 +59,11 @@
         "projectId": "74a3887e-9f23-42bb-885c-ae7592b26bdf"
       }
     },
-    "owner": "aamjit"
+    "owner": "aamjit",
+    "hooks": {
+      "prebuild": [
+        "node decode-google-services.js"
+      ]
+    }
   }
 }

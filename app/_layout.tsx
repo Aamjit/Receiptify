@@ -31,7 +31,7 @@ export default function RootLayout() {
         <Stack initialRouteName='index'>
           <Stack.Screen name="index" options={{ headerShown: false, }} />
           <Stack.Screen name="(screens)/IntroScreen" options={{ headerShown: false, }} />
-          <Stack.Screen name="(screens)/AuthScreen1" options={{ headerShown: false }} />
+          <Stack.Screen name="(screens)/AuthScreen" options={{ headerShown: false }} />
           <Stack.Screen name="(screens)/OTPScreen" options={{ headerShown: false }} />
           <Stack.Screen name="(screens)/AccountSetupScreen" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

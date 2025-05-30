@@ -19,14 +19,37 @@
   //   }
   // },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "GOOGLE_SERVICES_JSON": "@ANDROID_GOOGLE_SERVICES_JSON"
+      },
+      "hooks": {
+        "prebuild": "node ./decode-google-services.js"
+      }
+    },
     "preview": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "env": {
+          "GOOGLE_SERVICES_JSON": "@ANDROID_GOOGLE_SERVICES_JSON"
+        },
+        "hooks": {
+          "prebuild": "node ./decode-google-services.js"
+        }
       }
     },
     "production": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "env": {
+          "GOOGLE_SERVICES_JSON": "@ANDROID_GOOGLE_SERVICES_JSON"
+        },
+        "autoIncrement": true,
+        "hooks": {
+          "prebuild": "node ./decode-google-services.js"
+        }
       }
     }
   },
