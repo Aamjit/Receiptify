@@ -32,6 +32,7 @@ const ManageInventory = () => {
     const animatedHeight = useRef(new Animated.Value(1)).current;
     const lastScrollY = useRef(0);
     const scrollThreshold = 10; // minimum scroll distance to trigger collapse
+    const scrollViewRef = useRef<ScrollView>(null);
 
     useEffect(() => {
         fetchInventory();
@@ -98,15 +99,25 @@ const ManageInventory = () => {
 
     const addItem = async () => {
         if (!name || !price || !category || !availability) {
-            setAlert({ visible: true, title: 'Error', message: 'Please fill all fields', actions: [{ text: 'OK' }] });
+            setAlert({
+                visible: true,
+                title: 'Error',
+                message: 'Please fill all fields',
+                actions: [{ text: 'OK', onPress: () => setAlert(a => ({ ...a, visible: false })) }]
+            });
             return;
         }
 
         const numericPrice = parseFloat(price);
         if (isNaN(numericPrice)) {
-            setAlert({ visible: true, title: 'Error', message: 'Please enter a valid price', actions: [{ text: 'OK' }] });
+            setAlert({
+                visible: true, title: 'Error', message: 'Please enter a valid price',
+                actions: [{ text: 'OK', onPress: () => setAlert(a => ({ ...a, visible: false })) }]
+            });
             return;
         }
+
+        setLoading(true);
 
         try {
             let newItems: InventoryItem[];
@@ -141,6 +152,9 @@ const ManageInventory = () => {
         } catch (error) {
             console.error('Error adding/updating item:', error);
             setAlert({ visible: true, title: 'Error', message: 'Failed to save item', actions: [{ text: 'OK' }] });
+        } finally {
+            setLoading(false);
+            toggleForm();
         }
     };
 
@@ -180,6 +194,12 @@ const ManageInventory = () => {
             useNativeDriver: false,
             bounciness: 2
         }).start();
+        // Scroll to top when expanding the form
+        if (!isFormVisible && scrollViewRef.current) {
+            setTimeout(() => {
+                scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+            }, 250); // Wait for animation
+        }
     };
 
     const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -227,6 +247,7 @@ const ManageInventory = () => {
             </View> */}
 
             <ScrollView
+                ref={scrollViewRef}
                 style={styles.scrollContainer}
                 onScroll={(event) => handleScroll(event)}
                 scrollEventThrottle={16}
@@ -343,6 +364,8 @@ const ManageInventory = () => {
                     <Text style={styles.expandButtonText}>Add New Item</Text>
                 </TouchableOpacity>
             )}
+
+            {/* // Availability Dropdown Modal */}
             <Modal
                 visible={showAvailabilityModal}
                 transparent={true}

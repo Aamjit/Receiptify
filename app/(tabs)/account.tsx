@@ -101,6 +101,7 @@ const AccountScreen: React.FC = () => {
     const [changePasswordVisible, setChangePasswordVisible] = useState(false);
     const [imageLoading, setImageLoading] = useState(false);
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
+    const [loggingOut, setLoggingOut] = useState(false);
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -142,12 +143,12 @@ const AccountScreen: React.FC = () => {
                     ...(logoUrl ? { businessLogo: logoUrl } : {}),
                 });
                 setUser({ ...user, name: newName, address: newAddress, panNumber: newPan, gstin: newGstin, phoneNumber: newPhone, website: newWebsite, ...(logoUrl ? { businessLogo: logoUrl } : {}) });
-                setAlert({ visible: true, title: 'Success', message: 'Profile updated successfully.', actions: [{ text: 'OK' }] });
+                setAlert({ visible: true, title: 'Success', message: 'Profile updated successfully.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             } else {
-                setAlert({ visible: true, title: 'Error', message: 'User document not found.', actions: [{ text: 'OK' }] });
+                setAlert({ visible: true, title: 'Error', message: 'User document not found.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             }
         } catch (error) {
-            setAlert({ visible: true, title: 'Error', message: 'Failed to update profile.', actions: [{ text: 'OK' }] });
+            setAlert({ visible: true, title: 'Error', message: 'Failed to update profile.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             console.error('Error updating profile:', error);
         } finally {
             setEditModalVisible(false);
@@ -159,14 +160,36 @@ const AccountScreen: React.FC = () => {
     };
 
     const handleLogout = async () => {
-        setAlert({ visible: true, title: 'Logout', message: 'Logout successful.', actions: [{ text: 'OK' }] });
-        setUser(null);
-        await signOut(getAuth());
-        router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
+        setAlert({
+            visible: true,
+            title: 'Confirm Logout',
+            message: 'Are you sure you want to logout?',
+            actions: [
+                { text: 'Cancel', onPress: () => setAlert({ ...alert, visible: false }) },
+                {
+                    text: 'Logout',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setAlert({ ...alert, visible: false });
+                        setLoggingOut(true);
+                        setUser(null);
+                        await signOut(getAuth());
+                        router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
+                        setLoggingOut(false);
+                    }
+                }
+            ]
+        });
     };
 
     return (
         <View style={styles.container}>
+            {loggingOut && (
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.15)', zIndex: 999, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color="#3b82f6" />
+                    <Text style={{ marginTop: 12, color: '#3b82f6', fontWeight: '600', fontSize: 16 }}>Logging out...</Text>
+                </View>
+            )}
             <StatusBar barStyle="dark-content" />
             <Text style={styles.title}>User Account</Text>
             <View style={styles.profileImageContainer}>

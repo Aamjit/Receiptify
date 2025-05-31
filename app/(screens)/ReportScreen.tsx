@@ -62,6 +62,31 @@ const dateRanges: DateRange[] = [
     }
 ];
 
+// Additional data we can extract from the receipts data
+// 1. Category - wise Sales Breakdown Show total sales, number of items, and average price per category(e.g., Electronics, Clothing). Pie chart or bar chart for visual representation.
+
+// 2. Customer Insights(if customer info is tracked) Most frequent customers. Highest spending customers. Average spend per customer.
+
+// 3. Time - based Trends Sales by week / month / quarter / year(not just daily). Compare current period to previous period(e.g., “Sales up 12 % vs last month”).
+
+// 4. Item Performance Fastest / slowest moving items(items sold most / least frequently). Items with increasing / decreasing sales trends.
+
+// 5. Profit Analysis(if cost data is available) Gross profit per item / category. Overall profit margin.
+
+// 6. Refunds / Returns(if tracked) Number and value of refunds / returns. Items most frequently returned.
+
+// 7. Inventory Insights(if inventory is tracked) Stock - out alerts(items with low or zero stock). Days of inventory left(based on sales velocity).
+
+// 8. Payment Method Analysis(if payment method is tracked) Sales by payment method(cash, card, UPI, etc.). Trends in payment method usage.
+
+// 9. Customer Visit Frequency(if customer data is tracked) Average time between purchases for repeat customers.
+
+// 10. Custom Period Comparisons Allow users to select any two periods and compare sales, items, etc.
+
+// 11. Receipts Heatmap Visualize sales by day of week and hour of day(to find peak business times).
+
+// 12. Discount / Promotion Effectiveness(if discounts are tracked) Sales uplift during promotions. Most effective discount types.
+
 export default function Report() {
     const [receipts, setReceipts] = useState<Receipt[]>([]);
     const [loading, setLoading] = useState({ state: false, message: '' });
@@ -70,6 +95,7 @@ export default function Report() {
     const [averageTransaction, setAverageTransaction] = useState(0);
     const [topItems, setTopItems] = useState<{ name: string; quantity: number; revenue: number }[]>([]);
     const [dailySales, setDailySales] = useState<{ date: string; total: number }[]>([]);
+    const [dailySalesCount, setDailySalesCount] = useState<{ date: string; count: number }[]>([]);
     const [exporting, setExporting] = useState(false);
     const [userData, setUserDate] = useState<any>();
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
@@ -154,17 +180,22 @@ export default function Report() {
 
         // Process daily sales
         const salesByDate = new Map<string, number>();
+        const salesCountByDate = new Map<string, number>();
         receiptsData.forEach(receipt => {
             const date = receipt.date;
             salesByDate.set(date, (salesByDate.get(date) || 0) + receipt.total);
+            salesCountByDate.set(date, (salesCountByDate.get(date) || 0) + 1);
         });
 
         const dailySalesArray = Array.from(salesByDate.entries())
             .map(([date, total]) => ({ date, total }))
             .sort((a, b) => a.date.localeCompare(b.date));
-
-        // console.log('dailySalesArray:', dailySalesArray);
         setDailySales(dailySalesArray);
+
+        const dailySalesCountArray = Array.from(salesCountByDate.entries())
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+        setDailySalesCount(dailySalesCountArray);
     };
 
     const fetchUserData = async () => {
@@ -185,7 +216,7 @@ export default function Report() {
             }
         } catch (error) {
             console.error('Error fetching user data:', error);
-            setAlert({ visible: true, title: 'Error', message: 'Failed to fetch user data', actions: [{ text: 'OK' }] });
+            setAlert({ visible: true, title: 'Error', message: 'Failed to fetch user data', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
         } finally {
             setLoading({ state: false, message: '' });
         }
@@ -204,11 +235,12 @@ export default function Report() {
         };
 
         return generateHTMLForReport({
-            selectedRangeLabel: selectedRange.label,
+            selectedRangeLabel: `From Date: ${selectedRange.startDate.toLocaleDateString()}<br> To Date: ${selectedRange.endDate.toLocaleDateString()}`,
             totalSales,
             averageTransaction,
             topItems,
             dailySales,
+            dailySalesCount,
             businessInfo,
         });
     };
@@ -224,7 +256,7 @@ export default function Report() {
             return uri;
         } catch (error) {
             console.error('Error generating PDF:', error);
-            setAlert({ visible: true, title: 'Error', message: 'Failed to generate PDF report', actions: [{ text: 'OK' }] });
+            setAlert({ visible: true, title: 'Error', message: 'Failed to generate PDF report', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             return null;
         } finally {
             setExporting(false);
@@ -266,11 +298,11 @@ export default function Report() {
                         dialogTitle: 'Save PDF Report'
                     });
                 }
-                setAlert({ visible: true, title: 'Success', message: 'Report generated successfully', actions: [{ text: 'OK' }] });
+                setAlert({ visible: true, title: 'Success', message: 'Report generated successfully', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             }
         } catch (error) {
             console.error('Error downloading report:', error);
-            setAlert({ visible: true, title: 'Error', message: 'Failed to download report', actions: [{ text: 'OK' }] });
+            setAlert({ visible: true, title: 'Error', message: 'Failed to download report', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
         } finally {
             setLoading({ state: false, message: '' });
         }
@@ -306,7 +338,8 @@ export default function Report() {
                         setSelectedRange({ ...selectedRange, endDate: date });
                     }}
                     disableFutureDates={true}
-                    onError={msg => setAlert({ visible: true, title: 'Date Error', message: msg, actions: [{ text: 'OK' }] })}
+                    maxRangeNumberOfDays={30}
+                    onError={msg => setAlert({ visible: true, title: 'Date Error', message: msg, actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] })}
                 />
             </View>
 
@@ -319,7 +352,7 @@ export default function Report() {
                             // @ts-ignore
                             import('react-native').then(RN => RN.ToastAndroid.show('Email Report is currently unavailable.', RN.ToastAndroid.SHORT));
                         } else {
-                            setAlert({ visible: true, title: 'Unavailable', message: 'Email Report is currently unavailable.', actions: [{ text: 'OK' }] });
+                            setAlert({ visible: true, title: 'Unavailable', message: 'Email Report is currently unavailable.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
                         }
                     }}
                     disabled={false}
@@ -360,48 +393,92 @@ export default function Report() {
                 ))}
             </View>
 
-            {dailySales.length > 0 && (
-                <View style={styles.chartContainer}>
-                    <Text style={styles.sectionTitle}>Sales Trend</Text>
-                    <ScrollView horizontal>
-                        <LineChart
-                            data={{
-                                labels: dailySales.map(sale => sale.date.slice(5)),
-                                datasets: [{
-                                    data: dailySales.map(sale => {
-                                        return sale.total
-                                    })
-                                }]
-                            }}
-                            width={Math.max(Dimensions.get("window").width, dailySales.length * 50)}
-                            height={220}
-                            yAxisLabel="₹"
-                            yAxisSuffix=""
-                            chartConfig={{
-                                backgroundColor: "#ffffff",
-                                backgroundGradientFrom: "#ffffff",
-                                backgroundGradientTo: "#ffffff",
-                                decimalPlaces: 0,
-                                color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
-                                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                                style: {
+            {(dailySales.length > 0 || dailySalesCount.length > 0) && <View style={styles.chartContainer}>
+                {dailySales.length > 0 && (
+                    <View>
+                        <Text style={styles.sectionTitle}>Sales Trend</Text>
+                        <ScrollView horizontal>
+                            <LineChart
+                                data={{
+                                    labels: dailySales.map(sale => sale.date.slice(5)),
+                                    datasets: [{
+                                        data: dailySales.map(sale => {
+                                            return sale.total
+                                        })
+                                    }]
+                                }}
+                                width={Math.max(Dimensions.get("window").width, dailySales.length * 50)}
+                                height={220}
+                                yAxisLabel="₹"
+                                yAxisSuffix=""
+                                chartConfig={{
+                                    backgroundColor: "#ffffff",
+                                    backgroundGradientFrom: "#ffffff",
+                                    backgroundGradientTo: "#ffffff",
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
+                                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                    style: {
+                                        borderRadius: 16
+                                    },
+                                    propsForDots: {
+                                        r: "6",
+                                        strokeWidth: "2",
+                                        stroke: "#2196F3"
+                                    }
+                                }}
+                                bezier
+                                style={{
+                                    marginVertical: 8,
                                     borderRadius: 16
-                                },
-                                propsForDots: {
-                                    r: "6",
-                                    strokeWidth: "2",
-                                    stroke: "#2196F3"
-                                }
-                            }}
-                            bezier
-                            style={{
-                                marginVertical: 8,
-                                borderRadius: 16
-                            }}
-                        />
-                    </ScrollView>
-                </View>
-            )}
+                                }}
+                            />
+                        </ScrollView>
+                    </View>
+                )}
+
+
+                {dailySalesCount.length > 0 && (
+                    <View>
+                        <Text style={styles.sectionTitle}>Sales Count (Transactions per Day)</Text>
+                        <ScrollView horizontal>
+                            <LineChart
+                                data={{
+                                    labels: dailySalesCount.map(sale => sale.date.slice(5)),
+                                    datasets: [{
+                                        data: dailySalesCount.map(sale => sale.count)
+                                    }]
+                                }}
+                                width={Math.max(Dimensions.get("window").width, dailySalesCount.length * 50)}
+                                height={220}
+                                yAxisLabel=""
+                                yAxisSuffix=" receipts"
+                                chartConfig={{
+                                    backgroundColor: "#ffffff",
+                                    backgroundGradientFrom: "#ffffff",
+                                    backgroundGradientTo: "#ffffff",
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) => `rgba(255, 152, 0, ${opacity})`,
+                                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                    style: {
+                                        borderRadius: 16
+                                    },
+                                    propsForDots: {
+                                        r: "6",
+                                        strokeWidth: "2",
+                                        stroke: "#FF9800"
+                                    }
+                                }}
+                                bezier
+                                style={{
+                                    marginVertical: 8,
+                                    borderRadius: 16
+                                }}
+                            />
+                        </ScrollView>
+                    </View>
+                )}
+            </View>}
 
             <CustomAlertModal
                 visible={alert.visible}
@@ -524,8 +601,9 @@ const styles = StyleSheet.create({
         backgroundColor: '#ffffff',
         padding: 16,
         borderRadius: 8,
-        marginBottom: 16,
+        marginBottom: 60,
         elevation: 2,
+        gap: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,

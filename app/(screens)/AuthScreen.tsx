@@ -3,8 +3,9 @@ import { collection, doc, getDocs, getFirestore, query, setDoc, where } from '@r
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, GestureResponderEvent, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, GestureResponderEvent, Image, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import CustomAlertModal from '@/components/CustomAlertModal'; // Adjust the import based on your project structure
 
 const AuthScreen = () => {
     const [email, setEmail] = useState<string>('');
@@ -14,6 +15,7 @@ const AuthScreen = () => {
     const [loading, setLoading] = useState({ state: false, text: "" });
     const [passwordVisible, setPasswordVisible] = useState<boolean>(false);
     const [confirmPasswordVisible, setConfirmPasswordVisible] = useState<boolean>(false);
+    const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const router = useRouter();
 
     useEffect(() => {
@@ -46,11 +48,11 @@ const AuthScreen = () => {
     const handleSignInOrSignUp = async (e: any) => {
         e.preventDefault();
         if (!email || !password) {
-            Alert.alert('Error', 'Please enter both email and password.');
+            setCustomAlert({ visible: true, title: 'Error', message: 'Please enter both email and password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return;
         }
         if (isSignUp && password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match. Please retype your password.');
+            setCustomAlert({ visible: true, title: 'Error', message: 'Passwords do not match. Please retype your password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return;
         }
 
@@ -59,61 +61,68 @@ const AuthScreen = () => {
                 setLoading({ state: true, text: "Signing you in" })
                 // Sign in flow
                 const singInPro = await signInWithEmailAndPassword(getAuth(), email, password);
-                singInPro && router.replace('/home');
+                if (singInPro) {
+                    if (Platform.OS === 'android') {
+                        ToastAndroid.show('Signed in successfully!', ToastAndroid.SHORT);
+                    } else {
+                        // Optionally add iOS toast/snackbar here
+                    }
+                    router.replace({ pathname: '/home', params: { reset: 'true' } });
+                }
             } else {
                 // Sign up flow with confirmation prompt
-                Alert.alert('Account Create', "Confirm to create a new account? \n\nMake sure you remember your password.",
-                    [{
-                        text: 'Back',
-                        onPress: async () => {
-                            return null;
-                        },
-                    }, {
-                        text: 'Yes',
-                        onPress: async () => {
-                            setLoading({ state: true, text: "Signing you in" })
-                            try {
-                                await createUserWithEmailAndPassword(getAuth(), email, password)
-
-                                const authResult = getAuth().currentUser;
-                                if (!authResult) {
-                                    throw new Error('Sign up failed: No user returned');
-                                }
-                                const db = getFirestore();
-                                const usersCollection = collection(db, 'Users');
-
-                                // Wait for user data to be stored
-                                authResult && await setDoc(doc(usersCollection), {
-                                    userId: authResult.uid,
-                                    name: '',
-                                    email: authResult.email || '',
-                                    businessLogo: '',
-                                    phoneNumber: '',
-                                    address: '',
-                                    gstin: '',
-                                    businessType: '',
-                                    panNumber: '',
-                                    website: '',
-                                    otherInfo: '',
-                                    createdAt: new Date()
-                                }).then(() => {
+                setCustomAlert({
+                    visible: true,
+                    title: 'Account Create',
+                    message: 'Confirm to create a new account?\n\nMake sure you remember your password.',
+                    actions: [
+                        { text: 'Back', onPress: () => setCustomAlert({ ...customAlert, visible: false }) },
+                        {
+                            text: 'Yes',
+                            onPress: async () => {
+                                setCustomAlert({ ...customAlert, visible: false });
+                                setLoading({ state: true, text: "Creating user account..." });
+                                try {
+                                    await createUserWithEmailAndPassword(getAuth(), email, password);
+                                    const authResult = getAuth().currentUser;
+                                    if (!authResult) {
+                                        throw new Error('Sign up failed: No user returned');
+                                    }
+                                    const db = getFirestore();
+                                    const usersCollection = collection(db, 'Users');
+                                    await setDoc(doc(usersCollection), {
+                                        userId: authResult.uid,
+                                        name: '',
+                                        email: authResult.email || '',
+                                        businessLogo: '',
+                                        phoneNumber: '',
+                                        address: '',
+                                        gstin: '',
+                                        businessType: '',
+                                        panNumber: '',
+                                        website: '',
+                                        otherInfo: '',
+                                        createdAt: new Date()
+                                    });
+                                    if (Platform.OS === 'android') {
+                                        ToastAndroid.show('Account created successfully!', ToastAndroid.SHORT);
+                                    } else {
+                                        // Optionally add iOS toast/snackbar here
+                                    }
                                     router.replace('/AccountSetupScreen');
-                                });
-
-
-                            } catch (signUpError: any) {
-                                Alert.alert('Account Error', signUpError.message || 'Failed to sign in or sign up.');
+                                } catch (signUpError: any) {
+                                    setCustomAlert({ visible: true, title: 'Account Error', message: signUpError.message || 'Failed to sign in or sign up.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+                                } finally {
+                                    setLoading({ state: false, text: "" });
+                                }
                             }
-                        },
-                    },
-                    ],
-                    {
-                        cancelable: true
-                    }
-                );
+                        }
+                    ]
+                });
+                return;
             }
         } catch (error: any) {
-            Alert.alert('Authentication Error', 'Please check you email ID and password and try again.');
+            setCustomAlert({ visible: true, title: 'Authentication Error', message: 'Please check you email ID and password and try again.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
         } finally {
             setLoading({ state: false, text: "" })
         }
@@ -166,22 +175,26 @@ const AuthScreen = () => {
 
             // Only navigate after all operations are complete
             setLoading({ state: false, text: "" });
-            router.replace('/home');
+            if (Platform.OS === 'android') {
+                ToastAndroid.show('Signed in successfully!', ToastAndroid.SHORT);
+            } else {
+                // Optionally add iOS toast/snackbar here
+            }
+            router.replace({ pathname: '/home', params: { reset: 'true' } });
 
         } catch (error: any) {
             setLoading({ state: false, text: "" });
-            Alert.alert('Google Sign-In Error', error.message || 'Failed to sign in with Google.');
+            setCustomAlert({ visible: true, title: 'Google Sign-In Error', message: error.message || 'Failed to sign in with Google.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
         }
     };
 
     const handleForgotPassword = (e: any) => {
         e.preventDefault();
         if (!email) {
-            Alert.alert('Error', 'Please enter your email address to reset your password.');
+            setCustomAlert({ visible: true, title: 'Error', message: 'Please enter your email address to reset your password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return;
         }
-        // Placeholder for password reset logic
-        Alert.alert('Password Reset', `Password reset link sent to ${email} (functionality to be implemented).`);
+        setCustomAlert({ visible: true, title: 'Password Reset', message: `Password reset link sent to ${email} (functionality to be implemented).`, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
     };
 
     return (
@@ -252,6 +265,13 @@ const AuthScreen = () => {
                         {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
                     </Text>
                 </TouchableOpacity>
+                <CustomAlertModal
+                    visible={customAlert.visible}
+                    title={customAlert.title}
+                    message={customAlert.message}
+                    actions={customAlert.actions}
+                    onRequestClose={() => setCustomAlert({ ...customAlert, visible: false })}
+                />
             </View>
     );
 };

@@ -4,7 +4,7 @@
     "slug": "receiptify",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Receiptify.png",
+    "icon": "./assets/images/Receiptify-brand.png",
     "scheme": "receiptify",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,15 +14,12 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Receiptify-mdpi.png",
+        "foregroundImage": "./assets/images/Receiptify-brand.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.receiptify.app",
-      "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",

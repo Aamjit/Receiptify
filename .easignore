@@ -14,3 +14,5 @@ node_modules/
 .DS_Store
 .expo/
 .expo-shared/
+# Expo Doctor recommendations
+/android

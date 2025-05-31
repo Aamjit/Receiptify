@@ -15,6 +15,7 @@ interface GenerateHTMLParams {
     averageTransaction: number;
     topItems: TopItem[];
     dailySales: DailySale[];
+    dailySalesCount?: { date: string; count: number }[];
     businessInfo?: {
         name: string;
         address: string;
@@ -31,6 +32,7 @@ export function generateHTMLForReport({
     averageTransaction,
     topItems,
     dailySales,
+    dailySalesCount = [],
     businessInfo
 }: GenerateHTMLParams): string {
     const topItemsHTML = topItems.map((item, index) => `
@@ -48,6 +50,13 @@ export function generateHTMLForReport({
             <td>₹${sale.total.toFixed(2)}</td>
         </tr>
     `).join('');
+
+    const dailySalesCountHTML = dailySalesCount.length > 0 ? dailySalesCount.map(sale => `
+        <tr>
+            <td>${sale.date}</td>
+            <td>${sale.count}</td>
+        </tr>
+    `).join('') : '';
 
     return `
         <html>
@@ -306,6 +315,21 @@ export function generateHTMLForReport({
                             ${dailySalesHTML}
                         </tbody>
                     </table>
+
+                    ${dailySalesCount.length > 0 ? `
+                    <h2 class="section-title">Sales Count (Receipts per Day)</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Receipts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${dailySalesCountHTML}
+                        </tbody>
+                    </table>
+                    ` : ''}
 
                     <div class="footer">
                         <img src="https://oucfxeezfamenmsqkgib.supabase.co/storage/v1/object/public/receiptify/appImages/Receiptify-mdpi.jpg" alt="App Logo" style="height: 32px; margin-bottom: 0.5rem; display: block; margin-left: auto; margin-right: auto; border-radius: 100px" />

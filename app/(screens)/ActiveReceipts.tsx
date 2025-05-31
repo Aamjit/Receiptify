@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import CustomDropdown from '../components/CustomDropdown';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 type ReceiptItem = {
     id: string
@@ -28,7 +29,6 @@ const ActiveReceipts = () => {
     const [selectedReceipt, setSelectedReceipt] = useState<ActiveReceipt | null>(null)
     const [items, setItems] = useState<ReceiptItem[]>([])
     const [activeReceipts, setActiveReceipts] = useState<ActiveReceipt[]>([])
-
     const [newItemName, setNewItemName] = useState('')
     const [newItemPrice, setNewItemPrice] = useState('')
 
@@ -38,6 +38,9 @@ const ActiveReceipts = () => {
 
     // State for custom dropdown visibility
     const [dropdownVisible, setDropdownVisible] = useState(false)
+
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
+    const [pendingDelete, setPendingDelete] = useState<{ id: string; receiptNumber: string } | null>(null);
 
     const router = useRouter()
 
@@ -71,44 +74,14 @@ const ActiveReceipts = () => {
             })
             setActiveReceipts(receiptsData)
         } catch (error) {
-            Alert.alert('Error', 'Failed to fetch active receipts.')
+            setAlert({ visible: true, title: 'Error', message: 'Failed to fetch active receipts.', actions: [{ text: 'OK' }] });
             console.error('Error fetching active receipts:', error)
         }
     }
 
     const deleteReceipt = async (receiptId: string, receiptNumber: string) => {
-        Alert.alert(
-            'Delete Receipt',
-            `Are you sure you want to delete receipt ${receiptNumber}?`,
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel'
-                },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const db = getFirestore()
-                            const receiptRef = doc(db, 'Receipts', receiptId)
-                            await updateDoc(receiptRef, {
-                                status: 'deleted'
-                            })
-                            // Remove the deleted receipt from activeReceipts list
-                            setActiveReceipts(prevReceipts =>
-                                prevReceipts.filter(r => r.id !== receiptId)
-                            )
-                            await showToast(`Receipt ${receiptNumber} has been deleted`)
-                        } catch (error) {
-                            Alert.alert('Error', 'Failed to delete receipt. Please try again.')
-                            console.error('Error deleting receipt:', error)
-                        }
-                    }
-                }
-            ]
-        )
-    }
+        setPendingDelete({ id: receiptId, receiptNumber });
+    };
 
     // Use useFocusEffect to reload data when screen comes into focus
     useFocusEffect(
@@ -202,7 +175,7 @@ const ActiveReceipts = () => {
                 setModalVisible(false)
                 await showToast(`Receipt ${selectedReceipt.receiptNumber} has been updated`)
             } catch (error) {
-                Alert.alert('Error', 'Failed to update receipt. Please try again.')
+                setAlert({ visible: true, title: 'Error', message: 'Failed to update receipt. Please try again.', actions: [{ text: 'OK' }] });
                 console.error('Error updating receipt:', error)
             }
         }
@@ -216,10 +189,7 @@ const ActiveReceipts = () => {
                 ToastAndroid.BOTTOM,
             );
         } else {
-            // For iOS, use Alert
-            Alert.alert('Receiptify', message, [{ text: 'OK' }], {
-                cancelable: true,
-            });
+            setAlert({ visible: true, title: 'Receiptify', message, actions: [{ text: 'OK' }] });
         }
     };
 
@@ -238,7 +208,7 @@ const ActiveReceipts = () => {
                 setModalVisible(false)
                 await showToast(`Receipt ${selectedReceipt.receiptNumber} has been finalized`)
             } catch (error) {
-                Alert.alert('Error', 'Failed to finalize receipt. Please try again.')
+                setAlert({ visible: true, title: 'Error', message: 'Failed to finalize receipt. Please try again.', actions: [{ text: 'OK' }] });
                 console.error('Error finalizing receipt:', error)
             }
         }
@@ -286,12 +256,12 @@ const ActiveReceipts = () => {
 
     const handleAddItem = () => {
         if (!newItemName.trim() || !newItemPrice.trim()) {
-            Alert.alert('Error', 'Please enter both item name and price.')
+            setAlert({ visible: true, title: 'Error', message: 'Please enter both item name and price.', actions: [{ text: 'OK' }] });
             return
         }
         const price = parseFloat(newItemPrice)
         if (isNaN(price) || price <= 0) {
-            Alert.alert('Error', 'Please enter a valid positive price.')
+            setAlert({ visible: true, title: 'Error', message: 'Please enter a valid positive price.', actions: [{ text: 'OK' }] });
             return
         }
         addItem(newItemName.trim(), price)
@@ -428,14 +398,6 @@ const ActiveReceipts = () => {
                                                         }}
                                                         placeholder="Select item"
                                                     />
-                                                    {/* <TextInput
-                                                        style={[styles.addItemInput, styles.priceInput]}
-                                                        placeholder="Price"
-                                                        keyboardType="numeric"
-                                                        value={newItemPrice}
-                                                        onChangeText={setNewItemPrice}
-                                                        placeholderTextColor="#999"
-                                                    /> */}
                                                 </View>
                                                 <TouchableOpacity
                                                     style={styles.addButton}
@@ -472,6 +434,40 @@ const ActiveReceipts = () => {
                     </View>
                 </View>
             </Modal>
+
+            <CustomAlertModal
+                visible={!!pendingDelete}
+                title="Delete Receipt"
+                message={pendingDelete ? `Are you sure you want to delete receipt ${pendingDelete.receiptNumber}?` : ''}
+                actions={[
+                    { text: 'Cancel', style: 'cancel', onPress: () => setPendingDelete(null) },
+                    {
+                        text: 'Delete', style: 'destructive', onPress: async () => {
+                            if (!pendingDelete) return;
+                            try {
+                                const db = getFirestore();
+                                const receiptRef = doc(db, 'Receipts', pendingDelete.id);
+                                await updateDoc(receiptRef, { status: 'deleted' });
+                                setActiveReceipts(prevReceipts => prevReceipts.filter(r => r.id !== pendingDelete.id));
+                                await showToast(`Receipt ${pendingDelete.receiptNumber} has been deleted`);
+                            } catch (error) {
+                                setAlert({ visible: true, title: 'Error', message: 'Failed to delete receipt. Please try again.', actions: [{ text: 'OK' }] });
+                                console.error('Error deleting receipt:', error);
+                            } finally {
+                                setPendingDelete(null);
+                            }
+                        }
+                    }
+                ]}
+                onRequestClose={() => setPendingDelete(null)}
+            />
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
+            />
         </View>
     )
 }

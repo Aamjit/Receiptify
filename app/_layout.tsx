@@ -85,6 +85,16 @@ export default function RootLayout() {
             headerTitleAlign: "center",
             headerTintColor: "#007AFF",
           }} />
+          <Stack.Screen name="(screens)/HowItWorksScreen" options={{
+            headerShown: true,
+            title: "Learn How It Works",
+            headerStyle: { backgroundColor: "#fff" },
+            headerTitleStyle: {
+              color: "#000",
+            },
+            headerTitleAlign: "center",
+            headerTintColor: "#007AFF",
+          }} />
           <Stack.Screen name="+not-found" />
         </Stack>
       </ThemeProvider >

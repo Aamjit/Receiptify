@@ -73,7 +73,6 @@ export default function Avatar({ url, size: { width = 100, height = 100 }, onIma
                     format: ImageManipulator.SaveFormat.JPEG
                 }
             );
-            console.log(compressImage);
 
             const image = result.assets[0]
             // console.log('Got image', image)
