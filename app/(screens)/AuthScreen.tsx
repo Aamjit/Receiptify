@@ -1,119 +1,392 @@
-
-import { getAuth } from '@react-native-firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
+import { collection, doc, getDocs, getFirestore, query, setDoc, where } from '@react-native-firebase/firestore';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, GestureResponderEvent, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-// const confirmation = await signInWithPhoneNumber(getAuth(), phoneNumber);
+import { ActivityIndicator, GestureResponderEvent, Image, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View, Platform } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import CustomAlertModal from '@/components/CustomAlertModal'; // Adjust the import based on your project structure
 
 const AuthScreen = () => {
-    const [phoneNumber, setPhoneNumber] = useState<string>('')
+    const [email, setEmail] = useState<string>('');
+    const [password, setPassword] = useState<string>('');
+    const [confirmPassword, setConfirmPassword] = useState<string>('');
+    const [isSignUp, setIsSignUp] = useState<boolean>(false);
+    const [loading, setLoading] = useState({ state: false, text: "" });
+    const [passwordVisible, setPasswordVisible] = useState<boolean>(false);
+    const [confirmPasswordVisible, setConfirmPasswordVisible] = useState<boolean>(false);
+    const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const router = useRouter();
-    // const handleAuthStateChanged = (user: any) => {
-    //     if (user) {
-    //         // Some Android devices can automatically process the verification code (OTP) message, and the user would NOT need to enter the code.
-    //         // Actually, if he/she tries to enter it, he/she will get an error message because the code was already used in the background.
-    //         // In this function, make sure you hide the component(s) for entering the code and/or navigate away from this screen.
-    //         // It is also recommended to display a message to the user informing him/her that he/she has successfully logged in.
-    //     }
-    // }
 
     useEffect(() => {
-        // const subscriber = onAuthStateChanged(getAuth(), handleAuthStateChanged);
-        // return subscriber; // unsubscribe on unmount
-        getAuth().currentUser && router.replace("/home")
+        // Configure Google Signin
+        GoogleSignin.configure({
+            webClientId: process.env.EXPO_PUBLIC_CLIENT_ID // Replace with your actual web client ID from Firebase console
+        });
+
+        // Redirect if already logged in
+        // if (getAuth().currentUser) {
+        //     router.replace('/home');
+        // }
     }, []);
 
-    // const handleSignInWithPhoneNumber = async (phoneNumber: string) => {
-    //     const confirmation = await signInWithPhoneNumber(getAuth(), phoneNumber);
-    //     setConfirm(confirmation as any);
-    //     console.log("confirmation", confirmation);
-    // }
 
-    const handleLogin = async (e: GestureResponderEvent) => {
-        e.preventDefault()
-        // Basic validation for phone number length
-        if (phoneNumber.length < 10) {
-            Alert.alert('Invalid Phone Number', 'Please enter a valid phone number with at least 10 digits.')
-            return
+    // Handle user state changes
+    function handleAuthStateChanged(user: any) {
+        // setUser(user);
+        // if (initializing) setInitializing(false);
+        if (user) {
+            router.replace('/home');
         }
-
-        // Here you can add the logic to handle phone number login
-        Alert.alert('Login', `OTP sent to phone number: +91-${phoneNumber}`)
-
-        router.navigate({
-            pathname: '/OTPScreen',
-            params: { phoneNumber: phoneNumber },
-        });
     }
 
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Login with Phone Number</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter phone number"
-                keyboardType="phone-pad"
-                value={phoneNumber}
-                onChangeText={(val) => {
-                    if (!val.match("^[0-9]*$")) {
-                        return;
+    useEffect(() => {
+        const subscriber = onAuthStateChanged(getAuth(), handleAuthStateChanged);
+        return subscriber; // unsubscribe on unmount
+    }, []);
+
+    const handleSignInOrSignUp = async (e: any) => {
+        e.preventDefault();
+        if (!email || !password) {
+            setCustomAlert({ visible: true, title: 'Error', message: 'Please enter both email and password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+            return;
+        }
+        if (isSignUp && password !== confirmPassword) {
+            setCustomAlert({ visible: true, title: 'Error', message: 'Passwords do not match. Please retype your password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+            return;
+        }
+
+        try {
+            if (!isSignUp) {
+                setLoading({ state: true, text: "Signing you in" })
+                // Sign in flow
+                const singInPro = await signInWithEmailAndPassword(getAuth(), email, password);
+                if (singInPro) {
+                    if (Platform.OS === 'android') {
+                        ToastAndroid.show('Signed in successfully!', ToastAndroid.SHORT);
+                    } else {
+                        // Optionally add iOS toast/snackbar here
                     }
-                    setPhoneNumber(val);
-                }}
-                maxLength={10}
-            />
-            <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                <Text style={styles.buttonText}>Send OTP</Text>
-            </TouchableOpacity>
-        </View>
-    )
-}
+                    router.replace({ pathname: '/home', params: { reset: 'true' } });
+                }
+            } else {
+                // Sign up flow with confirmation prompt
+                setCustomAlert({
+                    visible: true,
+                    title: 'Account Create',
+                    message: 'Confirm to create a new account?\n\nMake sure you remember your password.',
+                    actions: [
+                        { text: 'Back', onPress: () => setCustomAlert({ ...customAlert, visible: false }) },
+                        {
+                            text: 'Yes',
+                            onPress: async () => {
+                                setCustomAlert({ ...customAlert, visible: false });
+                                setLoading({ state: true, text: "Creating user account..." });
+                                try {
+                                    await createUserWithEmailAndPassword(getAuth(), email, password);
+                                    const authResult = getAuth().currentUser;
+                                    if (!authResult) {
+                                        throw new Error('Sign up failed: No user returned');
+                                    }
+                                    const db = getFirestore();
+                                    const usersCollection = collection(db, 'Users');
+                                    await setDoc(doc(usersCollection), {
+                                        userId: authResult.uid,
+                                        name: '',
+                                        email: authResult.email || '',
+                                        businessLogo: '',
+                                        phoneNumber: '',
+                                        address: '',
+                                        gstin: '',
+                                        businessType: '',
+                                        panNumber: '',
+                                        website: '',
+                                        otherInfo: '',
+                                        createdAt: new Date()
+                                    });
+                                    if (Platform.OS === 'android') {
+                                        ToastAndroid.show('Account created successfully!', ToastAndroid.SHORT);
+                                    } else {
+                                        // Optionally add iOS toast/snackbar here
+                                    }
+                                    router.replace('/AccountSetupScreen');
+                                } catch (signUpError: any) {
+                                    setCustomAlert({ visible: true, title: 'Account Error', message: signUpError.message || 'Failed to sign in or sign up.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+                                } finally {
+                                    setLoading({ state: false, text: "" });
+                                }
+                            }
+                        }
+                    ]
+                });
+                return;
+            }
+        } catch (error: any) {
+            setCustomAlert({ visible: true, title: 'Authentication Error', message: 'Please check you email ID and password and try again.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+        } finally {
+            setLoading({ state: false, text: "" })
+        }
+    };
+
+    const handleGoogleSignIn = async (e: GestureResponderEvent) => {
+        e.preventDefault();
+        setLoading({ state: true, text: "Logging in" });
+        try {
+            await GoogleSignin.hasPlayServices();
+
+            const userInfo = await GoogleSignin.signIn();
+            const idToken = userInfo?.data?.idToken;
+            if (!idToken) {
+                throw new Error('Google Sign-In failed: No idToken returned');
+            }
+
+            const googleCredential = GoogleAuthProvider.credential(idToken);
+            const authResult = await signInWithCredential(getAuth(), googleCredential);
+
+            if (!authResult.user) {
+                throw new Error('Google Sign-In failed: No user returned');
+            }
+
+            // if (!GoogleSignin.hasPreviousSignIn()) {
+            // Wait for Firestore operations to complete
+            const db = getFirestore();
+            const usersCollection = collection(db, 'Users');
+            const q = query(usersCollection, where('userId', '==', authResult.user.uid));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                // Wait for user data to be stored
+                await setDoc(doc(usersCollection), {
+                    userId: authResult.user.uid,
+                    name: authResult.user.displayName || '',
+                    email: authResult.user.email || '',
+                    businessLogo: authResult.user.photoURL || '',
+                    phoneNumber: authResult.user.phoneNumber || '',
+                    address: '',
+                    gstin: '',
+                    businessType: '',
+                    panNumber: '',
+                    website: '',
+                    otherInfo: '',
+                    createdAt: new Date()
+                });
+            }
+            // }
+
+            // Only navigate after all operations are complete
+            setLoading({ state: false, text: "" });
+            if (Platform.OS === 'android') {
+                ToastAndroid.show('Signed in successfully!', ToastAndroid.SHORT);
+            } else {
+                // Optionally add iOS toast/snackbar here
+            }
+            router.replace({ pathname: '/home', params: { reset: 'true' } });
+
+        } catch (error: any) {
+            setLoading({ state: false, text: "" });
+            setCustomAlert({ visible: true, title: 'Google Sign-In Error', message: error.message || 'Failed to sign in with Google.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+        }
+    };
+
+    const handleForgotPassword = (e: any) => {
+        e.preventDefault();
+        if (!email) {
+            setCustomAlert({ visible: true, title: 'Error', message: 'Please enter your email address to reset your password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+            return;
+        }
+        setCustomAlert({ visible: true, title: 'Password Reset', message: `Password reset link sent to ${email} (functionality to be implemented).`, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+    };
+
+    return (
+        loading.state ?
+            <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={styles.loadingText}>{loading.text}...</Text>
+            </View>
+            :
+            <View style={styles.container}>
+                <Image source={require('@/assets/images/Receiptify.png')} style={styles.logo} resizeMode="contain" />
+                <Text style={styles.title}>{isSignUp ? 'Sign Up' : 'Sign In'}</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Email"
+                    placeholderTextColor="#999999"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                />
+                <View style={styles.inputContainer}>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Password"
+                        placeholderTextColor="#999999"
+                        secureTextEntry={!passwordVisible}
+                        value={password}
+                        onChangeText={setPassword}
+                    />
+                    <TouchableOpacity
+                        style={styles.visibilityToggle}
+                        onPress={() => setPasswordVisible(!passwordVisible)}
+                    >
+                        <View style={{ marginBlock: 'auto' }}>{passwordVisible ? <Ionicons name="eye" size={24} color="#999999" /> : <Ionicons name="eye-off" size={24} color="#999999" />}</View>
+                    </TouchableOpacity>
+                </View>
+                {isSignUp && (
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Confirm Password"
+                            placeholderTextColor="#999999"
+                            secureTextEntry={!confirmPasswordVisible}
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                        />
+                        <TouchableOpacity
+                            style={styles.visibilityToggle}
+                            onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
+                        >
+                            <View>{confirmPasswordVisible ? <Ionicons name="eye" size={24} color="#999999" /> : <Ionicons name="eye-off" size={24} color="#999999" />}</View>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
+                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={handleSignInOrSignUp}>
+                    <Text style={styles.buttonText}>{isSignUp ? 'Sign Up' : 'Sign In'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.button, styles.googleButton]} onPress={handleGoogleSignIn}>
+                    <Image width={1} height={1} source={require('@/assets/images/google-icon-min.png')} resizeMode='contain' style={{ flex: .2 }} />
+                    <Text style={[styles.buttonText, styles.buttonTextGoogle]}>Sign In with Google</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} style={styles.switchButton}>
+                    <Text style={styles.switchButtonText}>
+                        {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+                    </Text>
+                </TouchableOpacity>
+                <CustomAlertModal
+                    visible={customAlert.visible}
+                    title={customAlert.title}
+                    message={customAlert.message}
+                    actions={customAlert.actions}
+                    onRequestClose={() => setCustomAlert({ ...customAlert, visible: false })}
+                />
+            </View>
+    );
+};
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'center',
-        paddingHorizontal: 20,
-        backgroundColor: '#f9fafd',
+        paddingHorizontal: 24,
+        backgroundColor: '#f8fafc',
+    },
+    logo: {
+        width: 140,
+        height: 140,
+        alignSelf: 'center',
+        marginBottom: 32,
     },
     title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        color: '#051d5f',
+        fontSize: 32,
+        fontWeight: '700',
+        marginBottom: 24,
+        color: '#555',
         textAlign: 'center',
     },
     input: {
-        // height: 50,
-        // borderColor: '#ccc',
-        // borderWidth: 1,
-        // borderRadius: 8,
-        // paddingHorizontal: 15,
-        // fontSize: 16,
-        // marginBottom: 20,
-        // backgroundColor: '#fff',
-        height: 50,
-        borderColor: '#ccc',
+        height: 56,
+        color: "#1e293b",
+        backgroundColor: '#fff',
+        borderColor: '#e2e8f0',
         borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        fontSize: 18,
-        marginBottom: 20,
-        // textAlign: 'center',
-        // letterSpacing: 10,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    forgotPassword: {
+        alignSelf: 'flex-end',
     },
     button: {
-        height: 50,
-        backgroundColor: '#007AFF',
-        borderRadius: 8,
+        height: 56,
+        backgroundColor: '#3b82f6',
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 10, height: 5 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    signUpButton: {
+        backgroundColor: '#34A853',
+    },
+    googleButton: {
+        flexDirection: "row",
+        backgroundColor: '#fff',
+        gap: 8,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
     },
     buttonText: {
         color: '#ffffff',
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontWeight: '600',
     },
-})
+    buttonTextGoogle: {
+        color: '#555',
+    },
+    forgotPasswordText: {
+        color: '#3b82f6',
+        textAlign: 'right',
+        marginBottom: 24,
+        fontSize: 15,
+        fontWeight: '500',
+    },
+    switchButton: {
+        marginTop: 16,
+        alignItems: 'center',
+    },
+    switchButtonText: {
+        color: '#3b82f6',
+        fontSize: 15,
+        fontWeight: '500',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8fafc',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 15,
+        color: '#64748b',
+        fontWeight: '500',
+    },
+    inputContainer: {
+        position: 'relative',
+        justifyContent: 'center',
+    },
+    visibilityToggle: {
+        position: 'absolute',
+        right: "5%",
+        bottom: "10%",
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: "auto",
+    },
+});
 
-export default AuthScreen
+export default AuthScreen;

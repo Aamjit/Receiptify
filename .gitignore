@@ -3,7 +3,7 @@
 # dependencies
 node_modules/
 package-lock.json*
-google-services.json*
+google-services*.json*
 
 # Expo
 .expo/
@@ -36,7 +36,7 @@ yarn-error.*
 
 # local env files
 .env*.local
-.env
+.env*
 
 # typescript
 *.tsbuildinfo

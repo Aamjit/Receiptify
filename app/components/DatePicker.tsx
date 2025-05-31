@@ -57,8 +57,6 @@ const DatePicker: React.FC<DatePickerProps> = ({
             months.push(new Date(currentMonth));
             currentMonth.setMonth(currentMonth.getMonth() + 1);
         }
-        console.log(months);
-
         return months;
     };
 

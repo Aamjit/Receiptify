@@ -4,7 +4,7 @@ import { addDoc, collection, getDocs, getFirestore, query, where, doc, updateDoc
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
-import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 type InventoryItem = {
     id: string
@@ -24,6 +24,49 @@ const groupByCategory = (items: InventoryItem[]) => {
     }, {} as Record<string, InventoryItem[]>)
 }
 
+const CustomAlertModal = ({ visible, title, message, onClose, actions = [] }: {
+    visible: boolean;
+    title: string;
+    message: string;
+    onClose: () => void;
+    actions?: Array<{ text: string; onPress?: () => void; style?: any }>;
+}) => {
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 28, width: '85%', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 8 }}>
+                    <Ionicons name="information-circle" size={38} color="#2196F3" style={{ marginBottom: 10 }} />
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#1e293b', marginBottom: 8, textAlign: 'center' }}>{title}</Text>
+                    <Text style={{ fontSize: 15, color: '#64748b', textAlign: 'center', marginBottom: 18, lineHeight: 22 }}>{message}</Text>
+                    <View style={{ flexDirection: 'row', gap: 12, alignSelf: 'flex-end' }}>
+                        {actions && actions.length > 0 ? actions.map((action, idx) => (
+                            <TouchableOpacity
+                                key={idx}
+                                style={{ backgroundColor: action.style === 'destructive' ? '#ef4444' : '#2196F3', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8, marginLeft: idx > 0 ? 8 : 0 }}
+                                onPress={() => {
+                                    onClose();
+                                    if (action.onPress) action.onPress();
+                                }}
+                            >
+                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{action.text}</Text>
+                            </TouchableOpacity>
+                        )) : (
+                            <TouchableOpacity style={{ backgroundColor: '#2196F3', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8 }} onPress={onClose}>
+                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>OK</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
 const CreateReceipt = () => {
     const [receiptNumber, setReceiptNumber] = useState<string>('')
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
@@ -34,6 +77,7 @@ const CreateReceipt = () => {
         text: "",
     });
     const [userDocId, setUserDocId] = useState<string>('');
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: Array<{ text: string; onPress?: () => void; style?: any }> }>({ visible: false, title: '', message: '' });
     const userData = getAuth().currentUser
 
     useEffect(() => {
@@ -130,8 +174,8 @@ const CreateReceipt = () => {
 
     const saveReceipt = async () => {
         if (Object.keys(receiptItems).length === 0) {
-            Alert.alert('No items', 'Please add items to the receipt before completing.')
-            return
+            setAlert({ visible: true, title: 'No items', message: 'Please add items to the receipt before completing.' });
+            return;
         }
         setLoading({ state: true, text: "Saving receipt" })
 
@@ -170,19 +214,24 @@ const CreateReceipt = () => {
                 }
             })
             summary += `\nTotal: $${calculateTotal().toFixed(2)}`
-            Alert.alert('Receipt Saved', summary, [
-                {
-                    text: 'OK',
-                    onPress: () => {
-                        setReceiptItems({})
-                        // Generate next receipt number
-                        const nextNumber = generateNextReceiptNumber(parseInt(receiptNumber));
-                        setReceiptNumber(nextNumber);
-                    },
-                },
-            ])
+            setAlert({
+                visible: true,
+                title: 'Receipt Saved',
+                message: summary.replace(/\n/g, '\n'),
+                actions: [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            setReceiptItems({})
+                            // Generate next receipt number
+                            const nextNumber = generateNextReceiptNumber(parseInt(receiptNumber));
+                            setReceiptNumber(nextNumber);
+                        }
+                    }
+                ]
+            });
         } catch (error) {
-            Alert.alert('Error', 'Failed to save receipt. Please try again.')
+            setAlert({ visible: true, title: 'Error', message: 'Failed to save receipt. Please try again.' });
             console.error('Error saving receipt:', error);
         }
         finally {
@@ -303,6 +352,14 @@ const CreateReceipt = () => {
                     <Text style={styles.saveButtonText}>Save Receipt</Text>
                 </TouchableOpacity>
             </View>
+
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onClose={() => setAlert({ ...alert, visible: false })}
+            />
         </View>
     )
 }

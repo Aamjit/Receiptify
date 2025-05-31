@@ -1,33 +1,33 @@
 {
   "expo": {
     "name": "Receiptify",
-    "slug": "quick-bill",
+    "slug": "receiptify",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Receiptify.png",
+    "icon": "./assets/images/Receiptify-brand.png",
     "scheme": "receiptify",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.amarjit.receiptify"
+      "bundleIdentifier": "com.receiptify.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Receiptify.png",
+        "foregroundImage": "./assets/images/Receiptify-brand.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.amarjit.receiptify",
+      "package": "com.receiptify.app",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "@/assets/images/favicon.png"
     },
     "plugins": [
-      "@react-native-google-signin/google-signin",
+      // "@react-native-google-signin/google-signin",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "expo-router",
@@ -56,7 +56,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "74a3887e-9f23-42bb-885c-ae7592b26bdf"
+        "projectId": "eb56e57c-9245-4ada-abe9-f673e86dc57a"
       }
     },
     "owner": "aamjit"

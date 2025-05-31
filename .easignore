@@ -1,0 +1,18 @@
+# .easignore
+node_modules/
+**/.*
+**/ios/
+**/android/app/build/
+**/android/build/
+**/android/.gradle/
+**/android/.cxx/
+**/android/local.properties
+*.log
+*.mp4
+*.mov
+*.pdf
+.DS_Store
+.expo/
+.expo-shared/
+# Expo Doctor recommendations
+/android

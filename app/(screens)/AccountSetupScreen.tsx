@@ -5,7 +5,8 @@ import React, { useState } from 'react';
 import Avatar from '@/components/Avatar';
 import { supabase } from '@/lib/supabase';
 import { ImagePickerAsset } from 'expo-image-picker'
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, StatusBar, ToastAndroid } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, StatusBar, ToastAndroid } from 'react-native';
+import CustomAlertModal from '@/components/CustomAlertModal';
 
 const AccountSetupScreen = () => {
     const [formData, setFormData] = useState({
@@ -21,6 +22,7 @@ const AccountSetupScreen = () => {
     });
     const [loading, setLoading] = useState({ state: false, text: "" });
     const [accountImage, setAccountImage] = useState<ImagePickerAsset | null>(null);
+    const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const router = useRouter();
     const userData = getAuth().currentUser
 
@@ -44,31 +46,27 @@ const AccountSetupScreen = () => {
         const requiredFields: (keyof typeof formData)[] = ['name', 'address', 'phoneNumber', 'businessType'];
         for (const field of requiredFields) {
             if (!formData[field]) {
-                Alert.alert('Validation Error', `${field.replace(/([A-Z])/g, ' $1')} is required.`);
+                setCustomAlert({ visible: true, title: 'Validation Error', message: `${field.replace(/([A-Z])/g, ' $1')} is required.`, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
                 return false;
             }
         }
-
         if (formData.phoneNumber.length < 10) {
-            Alert.alert('Validation Error', 'Phone number must be at least 10 digits.');
+            setCustomAlert({ visible: true, title: 'Validation Error', message: 'Phone number must be at least 10 digits.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return false;
         }
-
         if (formData.gstin.length !== 15) {
-            Alert.alert('Validation Error', 'GSTIN must be exactly 15 characters.');
+            setCustomAlert({ visible: true, title: 'Validation Error', message: 'GSTIN must be exactly 15 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return false;
         }
-
         if (formData.panNumber.length !== 10) {
-            Alert.alert('Validation Error', 'PAN Number must be exactly 10 characters.');
+            setCustomAlert({ visible: true, title: 'Validation Error', message: 'PAN Number must be exactly 10 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return false;
         }
-
         return true;
     }
 
     const handleSubmit = async () => {
-        setLoading({ state: true, text: "Submitting" })
+        setLoading({ state: true, text: "Saving user data..." })
         try {
 
             if (!checkFormValidation()) {
@@ -77,7 +75,7 @@ const AccountSetupScreen = () => {
 
             // Check if the image size is less than 5MB
             if (accountImage?.fileSize && accountImage?.fileSize > 3 * 1024 * 1024) {
-                Alert.alert('Image Size Error', 'Business logo must be less than 3MB.');
+                setCustomAlert({ visible: true, title: 'Image Size Error', message: 'Business logo must be less than 3MB.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
                 return;
             }
 
@@ -93,47 +91,48 @@ const AccountSetupScreen = () => {
                 })
 
             if (uploadError) {
-                Alert.alert('Error', 'Failed to upload profile image. Please try again.\n' + uploadError.message);
+                setCustomAlert({ visible: true, title: 'Error', message: 'Failed to upload profile image. Please try again.\n' + uploadError.message, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             }
 
             const imageUrl = supabase.storage.from('receiptify').getPublicUrl(data?.path ?? '');
 
             // Update user document in Firestore to add the image URL
             if (!userData?.uid) {
-                Alert.alert('Error', 'User not authenticated.');
+                setCustomAlert({ visible: true, title: 'Error', message: 'User not authenticated.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
                 return;
             }
             const usersCollection = collection(getFirestore(), 'Users');
             const q = query(usersCollection, where('userId', '==', userData.uid));
             const querySnapshot = await getDocs(q);
             if (querySnapshot.empty) {
-                Alert.alert('Error', 'User document not found.');
+                setCustomAlert({ visible: true, title: 'Error', message: 'User document not found.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
                 return;
             }
             const userDocRef = querySnapshot.docs[0].ref;
             await updateDoc(userDocRef, {
-                // name: formData.name || '',
-                // phoneNumber: formData.phoneNumber || '',
-                // address: formData.address || '',
-                // gstin: formData.gstin || '',
-                // businessType: formData.businessType || '',
-                // panNumber: formData.panNumber || '',
-                // website: formData.website || '',
-                // otherInfo: formData.otherInfo || '',
+                name: formData.name || '',
+                phoneNumber: formData.phoneNumber || '',
+                address: formData.address || '',
+                gstin: formData.gstin || '',
+                businessType: formData.businessType || '',
+                panNumber: formData.panNumber || '',
+                website: formData.website || '',
+                otherInfo: formData.otherInfo || '',
                 businessLogo: imageUrl.data.publicUrl || '',
             })
                 .then(() => {
                     // console.log("User document updated with profile picture URL");
-                    ToastAndroid.show('Account setup submitted successfully.', ToastAndroid.LONG);
-                    router.push("/home");
+                    ToastAndroid.show('Account details saved successfully.', ToastAndroid.LONG);
+                    router.replace({ pathname: '/home', params: { reset: 'true' } });
                 })
-                .catch((error) =>
+                .catch((error) => {
                     console.error("Error updating user document:", error)
-                );
+                    setCustomAlert({ visible: true, title: 'Error', message: 'Failed to update user document.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+                });
 
         } catch (error) {
             console.error('Error during account setup:', error);
-            Alert.alert('Error', 'Failed to set up account. Please try again.');
+            setCustomAlert({ visible: true, title: 'Error', message: 'Failed to set up account. Please try again.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
         } finally {
             setLoading({ state: false, text: '' });
         }
@@ -143,6 +142,13 @@ const AccountSetupScreen = () => {
         <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
             <ActivityIndicator size="large" color="#007AFF" />
             <Text style={{ marginTop: 10 }}>{loading.text}...</Text>
+            <CustomAlertModal
+                visible={customAlert.visible}
+                title={customAlert.title}
+                message={customAlert.message}
+                actions={customAlert.actions}
+                onRequestClose={() => setCustomAlert({ ...customAlert, visible: false })}
+            />
         </View>
         :
         (<ScrollView contentContainerStyle={styles.container}>
@@ -235,6 +241,14 @@ const AccountSetupScreen = () => {
             <TouchableOpacity style={styles.button} onPress={handleSubmit}>
                 <Text style={styles.buttonText}>Create Account</Text>
             </TouchableOpacity>
+
+            <CustomAlertModal
+                visible={customAlert.visible}
+                title={customAlert.title}
+                message={customAlert.message}
+                actions={customAlert.actions}
+                onRequestClose={() => setCustomAlert({ ...customAlert, visible: false })}
+            />
         </ScrollView>
         );
 };

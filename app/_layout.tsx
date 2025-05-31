@@ -31,7 +31,7 @@ export default function RootLayout() {
         <Stack initialRouteName='index'>
           <Stack.Screen name="index" options={{ headerShown: false, }} />
           <Stack.Screen name="(screens)/IntroScreen" options={{ headerShown: false, }} />
-          <Stack.Screen name="(screens)/AuthScreen1" options={{ headerShown: false }} />
+          <Stack.Screen name="(screens)/AuthScreen" options={{ headerShown: false }} />
           <Stack.Screen name="(screens)/OTPScreen" options={{ headerShown: false }} />
           <Stack.Screen name="(screens)/AccountSetupScreen" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -78,6 +78,16 @@ export default function RootLayout() {
           <Stack.Screen name="(screens)/ReportScreen" options={{
             headerShown: true,
             title: "Sales Report",
+            headerStyle: { backgroundColor: "#fff" },
+            headerTitleStyle: {
+              color: "#000",
+            },
+            headerTitleAlign: "center",
+            headerTintColor: "#007AFF",
+          }} />
+          <Stack.Screen name="(screens)/HowItWorksScreen" options={{
+            headerShown: true,
+            title: "Learn How It Works",
             headerStyle: { backgroundColor: "#fff" },
             headerTitleStyle: {
               color: "#000",

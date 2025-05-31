@@ -2,7 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, Dimensions, FlatList, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 interface Feature {
     key: string;
@@ -18,7 +19,7 @@ const features: Feature[] = [
     { key: 'viewPastReceipts', label: 'View Completed Receipts', icon: "receipt", gradient: ['#2196F3', '#1565C0'] },
     { key: 'manageInventory', label: 'Manage Inventory', icon: "file-tray-stacked", gradient: ['#00BCD4', '#0097A7'] },
     { key: 'viewReports', label: 'View Reports', icon: "document-text", gradient: ['#FF9800', '#F57C00'] },
-    { key: 'help', label: 'Get Help', icon: "help-circle", locked: true, gradient: ['#FF5722', '#E64A19'] },
+    { key: 'help', label: 'How it works?', icon: "help-circle", locked: false, gradient: ['#FF5722', '#E64A19'] },
     // Add more features here if needed
 ];
 
@@ -32,6 +33,7 @@ const statusBarHeight = Platform.OS === 'android' ? StatusBar.currentHeight ?? 0
 
 const HomeScreen: React.FC = () => {
     const router = useRouter();
+    const [alert, setAlert] = React.useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
     const renderItem = ({ item }: { item: Feature }) => (
         <TouchableOpacity
@@ -59,6 +61,16 @@ const HomeScreen: React.FC = () => {
     );
 
     const featurePress = (item: Feature) => {
+        if (item.locked) {
+            setAlert({
+                visible: true,
+                title: 'Feature Locked 🔒',
+                message: "This feature is coming soon! We're working hard to bring it to you.",
+                actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }],
+            });
+            return;
+        }
+        // Navigate to the corresponding screen based on the feature key
         switch (item.key) {
             case 'createReceipt':
                 router.navigate("/CreateReceipt")
@@ -75,12 +87,16 @@ const HomeScreen: React.FC = () => {
             case 'viewReports':
                 router.navigate("/ReportScreen")
                 break;
+            case 'help':
+                router.navigate("/HowItWorksScreen")
+                break;
             default:
-                Alert.alert(
-                    "Feature Locked 🔒",
-                    "This feature is coming soon! We're working hard to bring it to you.",
-                    [{ text: "OK", style: "default" }]
-                );
+                setAlert({
+                    visible: true,
+                    title: 'Feature Locked 🔒',
+                    message: "This feature is coming soon! We're working hard to bring it to you.",
+                    actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }],
+                });
                 break;
         }
     }
@@ -99,6 +115,13 @@ const HomeScreen: React.FC = () => {
                 columnWrapperStyle={styles.row}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+            />
+            <CustomAlertModal
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                actions={alert.actions}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
             />
         </View>
     );

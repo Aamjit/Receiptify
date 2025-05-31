@@ -2,7 +2,8 @@ import { useAppContext } from '@/hooks/useApp';
 import { FirebaseAuthTypes, getAuth, onAuthStateChanged, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, GestureResponderEvent, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, GestureResponderEvent, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 
 const OTPScreen = () => {
@@ -15,6 +16,7 @@ const OTPScreen = () => {
         state: true,
         text: "Sending OTP"
     });
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
     function handleAuthStateChanged(user: any) {
         if (user) {
@@ -47,7 +49,7 @@ const OTPScreen = () => {
                 }).finally(() => setLoading({ state: false, text: "" }))
             } catch (error: any) {
                 console.log("Error in signInWithPhoneNumber:", error);
-                Alert.alert('Error', error.message || 'Failed to send OTP');
+                setAlert({ visible: true, title: 'Error', message: error.message || 'Failed to send OTP', actions: [{ text: 'OK' }] });
             }
         }
         handleSignInWithPhoneNumber(phoneNumber as string)
@@ -58,21 +60,20 @@ const OTPScreen = () => {
         setLoading({ state: true, text: "Validating OTP" })
         // OTP validation logic
         if (otp.length !== 6) {
-            Alert.alert('Error', 'Please enter a valid 6-digit OTP.');
+            setAlert({ visible: true, title: 'Error', message: 'Please enter a valid 6-digit OTP.', actions: [{ text: 'OK' }] });
             return
         }
 
         try {
             confirm.confirm(otp)
                 .then(() => {
-                    Alert.alert('Success', 'OTP validated successfully!');
-                    router.navigate("/AccountSetupScreen")
+                    setAlert({ visible: true, title: 'Success', message: 'OTP validated successfully!', actions: [{ text: 'OK', onPress: () => router.navigate("/AccountSetupScreen") }] });
                 })
-                .catch(() => Alert.alert('Error', 'OTP is invalid!'))
+                .catch(() => setAlert({ visible: true, title: 'Error', message: 'OTP is invalid!', actions: [{ text: 'OK' }] }))
                 .finally(() => { setLoading({ state: false, text: "" }) })
         } catch (error) {
             console.log(error);
-            Alert.alert('Error', 'OTP is invalid!')
+            setAlert({ visible: true, title: 'Error', message: 'OTP is invalid!', actions: [{ text: 'OK' }] })
         }
     }
 
@@ -99,6 +100,13 @@ const OTPScreen = () => {
                 <TouchableOpacity style={styles.button} onPress={handleOTPSubmit}>
                     <Text style={styles.buttonText}>Verify OTP</Text>
                 </TouchableOpacity>
+                <CustomAlertModal
+                    visible={alert.visible}
+                    title={alert.title}
+                    message={alert.message}
+                    actions={alert.actions}
+                    onRequestClose={() => setAlert({ ...alert, visible: false })}
+                />
             </View>
         )
     );

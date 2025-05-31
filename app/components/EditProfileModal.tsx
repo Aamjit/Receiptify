@@ -46,16 +46,15 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 0.5,
       legacy: true, // Use legacy behavior for better compatibility
     });
-    console.log(result);
 
     if (!result.canceled && result.assets && result.assets[0]) {
       // Compress the image before preview/upload
       const compressed = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
-        [{ resize: { width: 640 } }],
+        [{ resize: { width: 580 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
       setLogoPreview(compressed.uri);
@@ -135,6 +134,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={name}
               onChangeText={setName}
               placeholder="Enter your name"
+              placeholderTextColor={'#9ca3af'}
               autoCapitalize="words"
             />
             <Text style={styles.label}>Address</Text>
@@ -143,6 +143,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={address}
               onChangeText={setAddress}
               placeholder="Enter your address"
+              placeholderTextColor={'#9ca3af'}
               multiline
             />
             <Text style={styles.label}>PAN Number</Text>
@@ -151,6 +152,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={panNumber}
               onChangeText={setPanNumber}
               placeholder="Enter PAN Number"
+              placeholderTextColor={'#9ca3af'}
               autoCapitalize="characters"
               maxLength={10}
             />
@@ -160,6 +162,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={gstin}
               onChangeText={setGstin}
               placeholder="Enter GSTIN"
+              placeholderTextColor={'#9ca3af'}
               autoCapitalize="characters"
               maxLength={15}
             />
@@ -170,6 +173,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               onChangeText={setPhoneNumber}
               placeholder="Enter Phone Number"
               keyboardType="phone-pad"
+              placeholderTextColor={'#9ca3af'}
               maxLength={15}
             />
             <Text style={styles.label}>Website</Text>
@@ -178,6 +182,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
               value={website}
               onChangeText={setWebsite}
               placeholder="Enter Website"
+              placeholderTextColor={'#9ca3af'}
               autoCapitalize="none"
             />
             <View style={[styles.logoSection, { marginVertical: 12 }]}>
@@ -248,7 +253,7 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     marginTop: 18,
     gap: 12,
   },

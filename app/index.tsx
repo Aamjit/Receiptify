@@ -1,6 +1,6 @@
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { getAuth } from '@react-native-firebase/auth';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 export default function Index() {
@@ -11,16 +11,16 @@ export default function Index() {
         const checkIntro = async () => {
             try {
                 const introSeen = await AsyncStorageIntro.getItem()
-                setIntroSeen(introSeen)
+                introSeen ? setIntroSeen(introSeen) : setIntroSeen("false")
             } catch (e) {
-                // setHasSeenIntro(false);
+                setIntroSeen("false");
                 console.log(e);
             }
         };
         checkIntro();
     }, []);
 
-    return introSeen && <Redirect href={introSeen == "true" ? getAuth().currentUser ? "/home" : "/(screens)/AuthScreen1" : "/(screens)/IntroScreen"} />;
+    return introSeen && <Redirect href={introSeen == "true" ? getAuth().currentUser ? "/home" : "/(screens)/AuthScreen" : "/(screens)/IntroScreen"} />;
 
     // return <Redirect href={"/(screens)/AccountSetupScreen"} />;
     // return <Redirect href={introSeen == "true" ? "/IntroScreen" : "/IntroScreen"} />;
