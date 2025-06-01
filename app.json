@@ -4,22 +4,32 @@
     "slug": "receiptify",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Receiptify-brand.png",
+    "icon": "./assets/images/ic_launcher_foreground.png",
     "scheme": "receiptify",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/ic_launcher_foreground.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.receiptify.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Receiptify-brand.png",
+        "foregroundImage": "./assets/images/ic_launcher_foreground.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.receiptify.app",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "splash": {
+        "image": "./assets/images/ic_launcher_foreground.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      },
     },
     "web": {
       "bundler": "metro",
@@ -35,7 +45,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/Receiptify.png",
+          "image": "./assets/images/ic_launcher_foreground.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

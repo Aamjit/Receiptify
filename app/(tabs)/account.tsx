@@ -4,7 +4,7 @@ import { collection, doc, FirebaseFirestoreTypes, getDocs, getFirestore, query, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert, ToastAndroid } from 'react-native';
 import CustomAlertModal from '@/components/CustomAlertModal';
 import EditProfileModal from '../components/EditProfileModal';
 
@@ -174,8 +174,11 @@ const AccountScreen: React.FC = () => {
                         setLoggingOut(true);
                         setUser(null);
                         await signOut(getAuth());
-                        router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
-                        setLoggingOut(false);
+                        setTimeout(() => {
+                            ToastAndroid.show('Logged out successfully!', ToastAndroid.SHORT);
+                            router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
+                            setLoggingOut(false);
+                        }, 2000);
                     }
                 }
             ]

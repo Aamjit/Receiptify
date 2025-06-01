@@ -205,7 +205,7 @@ const AuthScreen = () => {
             </View>
             :
             <View style={styles.container}>
-                <Image source={require('@/assets/images/Receiptify.png')} style={styles.logo} resizeMode="contain" />
+                <Image source={require('@/assets/images/Receiptify.webp')} style={styles.logo} resizeMode="contain" />
                 <Text style={styles.title}>{isSignUp ? 'Sign Up' : 'Sign In'}</Text>
                 <TextInput
                     style={styles.input}
@@ -257,7 +257,7 @@ const AuthScreen = () => {
                     <Text style={styles.buttonText}>{isSignUp ? 'Sign Up' : 'Sign In'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.button, styles.googleButton]} onPress={handleGoogleSignIn}>
-                    <Image width={1} height={1} source={require('@/assets/images/google-icon-min.png')} resizeMode='contain' style={{ flex: .2 }} />
+                    <Image width={1} height={1} source={require('@/assets/images/google-icon-min.webp')} resizeMode='contain' style={{ flex: .2 }} />
                     <Text style={[styles.buttonText, styles.buttonTextGoogle]}>Sign In with Google</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} style={styles.switchButton}>

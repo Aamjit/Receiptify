@@ -55,7 +55,9 @@ const ManageInventory = () => {
                 const userData = userQuery.docs[0].data();
                 setInventory(userData.inventory || []);
             }
-            setLoading(false);
+            setTimeout(() => {
+                setLoading(false);
+            }, 500); // Simulate loading delay
         } catch (error) {
             console.error('Error fetching inventory:', error);
             setAlert({ visible: true, title: 'Error', message: 'Failed to fetch inventory', actions: [{ text: 'OK' }] });
@@ -240,11 +242,23 @@ const ManageInventory = () => {
         </View>
     );
 
+    // if (loading) {
+    //     return (
+    //         <View style={styles.container}>
+    //             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    //                 <Ionicons name="cube-outline" size={64} color="#94a3b8" />
+    //                 <Text style={styles.loadingText}>Loading inventory...</Text>
+    //             </View>
+    //         </View>
+    //     );
+    // }
+
     return (
         <View style={styles.container}>
             {/* <View style={styles.header}>
                 <Text style={styles.headerText}>Manage your inventory items</Text>
             </View> */}
+
 
             <ScrollView
                 ref={scrollViewRef}
@@ -335,20 +349,27 @@ const ManageInventory = () => {
                     </View>
                 </Animated.View>
 
-                {inventory.length === 0 ? (
-                    <View style={[styles.emptyStateContainer, { flex: 1, minHeight: 400 }]}>
-                        <Ionicons name="cube-outline" size={64} color="#94a3b8" />
-                        <Text style={styles.emptyStateTitle}>No Items Yet</Text>
-                        <Text style={styles.emptyStateMessage}>
-                            Use the form above to add items to your inventory.{'\n'}
-                            This will help you manage your stock efficiently.
-                        </Text>
+                {loading ?
+                    <View style={[styles.container, { minHeight: 400 }]}>
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <Ionicons name="cube-outline" size={64} color="#94a3b8" />
+                            <Text style={styles.loadingText}>Loading inventory...</Text>
+                        </View>
                     </View>
-                ) : (
-                    <View style={styles.listContainer}>
-                        {inventory.map((item) => renderItem({ item }))}
-                    </View>
-                )}
+                    : inventory.length === 0 ? (
+                        <View style={[styles.emptyStateContainer, { flex: 1, minHeight: 400 }]}>
+                            <Ionicons name="cube-outline" size={64} color="#94a3b8" />
+                            <Text style={styles.emptyStateTitle}>No Items Yet</Text>
+                            <Text style={styles.emptyStateMessage}>
+                                Use the form above to add items to your inventory.{'\n'}
+                                This will help you manage your stock efficiently.
+                            </Text>
+                        </View>
+                    ) : (
+                        <View style={styles.listContainer}>
+                            {inventory.map((item) => renderItem({ item }))}
+                        </View>
+                    )}
             </ScrollView>
 
             {!isFormVisible && (
@@ -726,6 +747,7 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         flex: 1,
+        height: '100%',
     },
     listContainer: {
         paddingInline: 20,
