@@ -19,3 +19,4 @@ node_modules/
 google-services-old*.*
 google-services*.*b6
 /assets/gif/
+build-log.txt

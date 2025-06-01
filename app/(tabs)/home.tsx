@@ -102,7 +102,7 @@ const HomeScreen: React.FC = () => {
     }
 
     return (
-        <View style={[styles.container, { paddingTop: statusBarHeight }]}>
+        <View style={[styles.container]}>
             <View style={styles.header}>
                 <Text style={styles.welcomeText}>Welcome back!</Text>
                 <Text style={styles.subText}>What would you like to do today?</Text>

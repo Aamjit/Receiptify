@@ -194,13 +194,13 @@ const ManageInventory = () => {
         Animated.spring(animatedHeight, {
             toValue,
             useNativeDriver: false,
-            bounciness: 2
+            bounciness: 1
         }).start();
         // Scroll to top when expanding the form
         if (!isFormVisible && scrollViewRef.current) {
             setTimeout(() => {
                 scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-            }, 250); // Wait for animation
+            }, 100); // Wait for animation
         }
     };
 
@@ -264,7 +264,7 @@ const ManageInventory = () => {
                 ref={scrollViewRef}
                 style={styles.scrollContainer}
                 onScroll={(event) => handleScroll(event)}
-                scrollEventThrottle={16}
+                scrollEventThrottle={17}
             >
                 <Animated.View style={[
                     styles.formContainer,
@@ -276,7 +276,7 @@ const ManageInventory = () => {
                         opacity: animatedHeight,
                         marginBottom: animatedHeight.interpolate({
                             inputRange: [0, 1],
-                            outputRange: [0, 16]
+                            outputRange: [0, 0]
                         })
                     }
                 ]}>
@@ -733,8 +733,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingBlock: 18,
-        borderRadius: 8,
-        // marginBottom: 16,
+        borderTopRightRadius: 8,
+        borderTopLeftRadius: 8,
         gap: 8,
     },
     expandButtonText: {

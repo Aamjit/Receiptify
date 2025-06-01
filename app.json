@@ -4,12 +4,12 @@
     "slug": "receiptify",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/ic_launcher_foreground.png",
+    "icon": "./assets/images/Receiptify-brand.png",
     "scheme": "receiptify",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/ic_launcher_foreground.png",
+      "image": "./assets/images/Receiptify.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -19,17 +19,12 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/ic_launcher_foreground.png",
+        "foregroundImage": "./assets/images/Receiptify.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.receiptify.app",
-      "googleServicesFile": "./google-services.json",
-      "splash": {
-        "image": "./assets/images/ic_launcher_foreground.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff"
-      },
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -37,7 +32,6 @@
       "favicon": "@/assets/images/favicon.png"
     },
     "plugins": [
-      // "@react-native-google-signin/google-signin",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "expo-router",
@@ -45,7 +39,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/ic_launcher_foreground.png",
+          "image": "./assets/images/Receiptify.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

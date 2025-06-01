@@ -301,23 +301,29 @@ const CreateReceipt = () => {
                         <View style={styles.itemsContainer}>
                             {items.map(item => {
                                 const qty = receiptItems[item.id] || 0;
+                                const isOutOfStock = item.availability.toLowerCase() !== 'in stock';
                                 return (
                                     <View key={item.id} style={styles.itemCard}>
                                         <View style={styles.itemInfo}>
                                             <Text style={styles.itemName}>{item.name}</Text>
                                             <Text style={styles.itemPrice}>₹{item.price.toFixed(2)}</Text>
+                                            {isOutOfStock && (
+                                                <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 13, marginTop: 2 }}>Out of Stock</Text>
+                                            )}
                                         </View>
                                         <View style={styles.quantityControls}>
                                             <TouchableOpacity
                                                 onPress={() => removeItem(item.id)}
                                                 style={[styles.controlButton, qty === 0 && styles.controlButtonDisabled]}
+                                                disabled={isOutOfStock}
                                             >
                                                 <Ionicons name="remove" size={20} color="#fff" />
                                             </TouchableOpacity>
                                             <Text style={styles.quantityText}>{qty}</Text>
                                             <TouchableOpacity
                                                 onPress={() => addItem(item.id)}
-                                                style={styles.controlButton}
+                                                style={[styles.controlButton, (isOutOfStock || false) && styles.controlButtonDisabled]}
+                                                disabled={isOutOfStock}
                                             >
                                                 <Ionicons name="add" size={20} color="#fff" />
                                             </TouchableOpacity>

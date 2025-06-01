@@ -6,10 +6,12 @@ import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -20,10 +22,10 @@ export default function TabLayout() {
         tabBarBackground: () => (
           <BlurView
             tint={isDark ? 'dark' : 'light'}
-            intensity={isDark ? 40 : 80}
+            // intensity={isDark ? 40 : 80}
             style={[
               StyleSheet.absoluteFillObject,
-              // styles.tabBarBackground,
+              styles.tabBarBackground,
               { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)' }
             ]}
           />
@@ -37,23 +39,23 @@ export default function TabLayout() {
           },
         },
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? 88 : 64,
-          paddingTop: 4,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+          height: Platform.OS === 'android' ? 70 : 64,
           elevation: 0,
           borderTopWidth: 0,
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
-          shadowColor: '#000',
+          shadowColor: '#fff',
           shadowOffset: {
-            width: 0,
+            width: 20,
             height: -4,
           },
           shadowOpacity: 0.08,
           shadowRadius: 8,
         },
         tabBarItemStyle: {
-          height: Platform.OS === 'ios' ? 50 : 56,
+          paddingVertical: 0,
+          paddingHorizontal: 0,
+          width: 'auto',
         },
         tabBarIconStyle: {
           marginTop: 4,
@@ -62,7 +64,7 @@ export default function TabLayout() {
           fontSize: 12,
           fontWeight: '500',
           marginTop: 4,
-          marginBottom: Platform.OS === 'ios' ? 0 : 8,
+          // marginBottom: Platform.OS === 'ios' ? 0 : 8,
         },
       }}>
       <Tabs.Screen
@@ -100,7 +102,10 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBarBackground: {
-    // overflow: 'hidden',
+    overflow: 'hidden',
+    padding: 0,
+    margin: 0,
+    backgroundColor: 'transparent',
     // borderTopLeftRadius: 24,
     // borderTopRightRadius: 24,
   },
@@ -110,6 +115,6 @@ const styles = StyleSheet.create({
   },
   activeIcon: {
     opacity: 1,
-    transform: [{ scale: 1.1 }],
+    transform: [{ scale: 1.2 }],
   },
 });

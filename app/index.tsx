@@ -2,7 +2,7 @@ import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { getAuth } from '@react-native-firebase/auth';
 import { Redirect } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
-import { View, Image, StyleSheet, Text, Animated } from 'react-native';
+import { Image, StyleSheet, Animated } from 'react-native';
 
 function SplashScreen() {
     const fadeAnim = useRef(new Animated.Value(1)).current;
