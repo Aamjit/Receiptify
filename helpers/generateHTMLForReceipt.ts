@@ -10,6 +10,8 @@ type ReceiptData = {
     time?: string;
     items: ReceiptItem[];
     total: number;
+    totalAfterDiscount?: number; // Add totalAfterDiscount
+    discount?: number; // Add discount
     businessInfo: {
         name: string;
         address: string;
@@ -21,7 +23,7 @@ type ReceiptData = {
 };
 
 export function generateHTMLForReceipt(receiptData: ReceiptData): string {
-    const { receiptNumber, date, items, total, businessInfo } = receiptData;
+    const { receiptNumber, date, items, total, totalAfterDiscount = 0, discount = 0, businessInfo } = receiptData;
 
     const itemsHTML = items.map(item => `
         <tr>
@@ -176,6 +178,18 @@ export function generateHTMLForReceipt(receiptData: ReceiptData): string {
                         ${itemsHTML}
                     </tbody>
                     <tfoot>
+                        <tr>
+                            <td colspan="3" style="text-align:right;">Subtotal</td>
+                            <td style="text-align:right;">₹${total.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3" style="text-align:right;">Discount</td>
+                            <td style="text-align:right;">${discount}%</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td colspan="3" style="text-align:right;">Total After Discount</td>
+                            <td style="text-align:right;">₹${(totalAfterDiscount ?? total).toFixed(2)}</td>
+                        </tr>
                         <tr class="total-row">
                             <td colspan="3" style="text-align:right;">Grand Total</td>
                             <td style="text-align:right;">₹${total.toFixed(2)}</td>

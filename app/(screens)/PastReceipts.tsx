@@ -21,24 +21,11 @@ type PastReceipt = {
     receiptNumber: string
     date: string
     total: number
+    totalAfterDiscount: number
+    discount?: number // Add discount field
     items: ReceiptItem[]
     timestamp?: number | null
 }
-
-// type BusinessInfo = {
-//     userId: string
-//     name: ''
-//     email: authResult.email || ''
-// businessLogo: ''
-// phoneNumber: ''
-// address: ''
-// gstin: ''
-// businessType: ''
-// panNumber: ''
-// website: ''
-// otherInfo: ''
-// createdAt: 
-// }
 
 const PastReceipts = () => {
     const [modalVisible, setModalVisible] = useState(false)
@@ -95,6 +82,8 @@ const PastReceipts = () => {
                         receiptNumber: data.receiptNumber,
                         date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : '',
                         total: data.total,
+                        totalAfterDiscount: data.totalAfterDiscount,
+                        discount: data.discount || 0, // Add discount
                         items: data.items,
                         timestamp: data.timestamp || null,
                     })
@@ -106,7 +95,9 @@ const PastReceipts = () => {
                 setAlert({ visible: true, title: 'Error', message: 'Failed to fetch past receipts.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
                 console.error('Error fetching past receipts:', error)
             } finally {
-                setIsLoading({ state: false, message: '' })
+                setTimeout(() => {
+                    setIsLoading({ state: false, message: '' })
+                }, 500); // Simulate network delay
             }
         }
         fetchPastReceipts()
@@ -137,6 +128,8 @@ const PastReceipts = () => {
                 time: selectedReceipt.timestamp ? new Date(selectedReceipt.timestamp).toLocaleTimeString() : '',
                 items: selectedReceipt.items,
                 total: selectedReceipt.total,
+                discount: selectedReceipt.discount || 0, // Pass discount to HTML generator
+                totalAfterDiscount: selectedReceipt.totalAfterDiscount, // Pass totalAfterDiscount to HTML generator
                 businessInfo: {
                     name: userData?.name || "Your Business Name",
                     address: userData?.address || "Area, City, Country",
@@ -318,8 +311,18 @@ const PastReceipts = () => {
                                 </View>
 
                                 <View style={styles.totalSection}>
-                                    <Text style={styles.totalLabel}>Total Amount</Text>
-                                    <Text style={styles.totalAmount}>₹{selectedReceipt.total.toFixed(2)}</Text>
+                                    <View style={{ marginBottom: 6 }}>
+                                        <Text style={styles.totalLabel}>Subtotal</Text>
+                                        <Text style={styles.subtotalAmount}>₹{selectedReceipt.total ? selectedReceipt.total.toFixed(2) : '0.00'}</Text>
+                                    </View>
+                                    <View style={{ marginBottom: 6 }}>
+                                        <Text style={styles.discountLabel}>Discount</Text>
+                                        <Text style={styles.discountAmount}>{typeof selectedReceipt.discount === 'number' ? selectedReceipt.discount : 0}%</Text>
+                                    </View>
+                                    <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 8, marginTop: 2 }}>
+                                        <Text style={styles.totalLabel}>Total Amount</Text>
+                                        <Text style={styles.finalTotalAmount}>₹{selectedReceipt.totalAfterDiscount ? selectedReceipt.totalAfterDiscount.toFixed(2) : selectedReceipt.total.toFixed(2)}</Text>
+                                    </View>
                                 </View>
                             </ScrollView>
                         )}
@@ -525,15 +528,33 @@ const styles = StyleSheet.create({
         padding: 16,
         marginBottom: 30,
     },
-    totalLabel: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 4,
+    subtotalAmount: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#334155',
     },
-    totalAmount: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#1a1a1a',
+    discountLabel: {
+        fontSize: 13,
+        color: '#64748b',
+        marginBottom: 2,
+    },
+    discountAmount: {
+        fontSize: 18,
+        color: '#f59e42',
+        fontWeight: '600',
+    },
+    totalLabel: {
+        fontSize: 13,
+        color: '#64748b',
+        fontWeight: '500',
+        marginBottom: 2,
+        letterSpacing: 0.1,
+    },
+    finalTotalAmount: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#0ea5e9',
+        marginTop: 2,
     },
     emptyStateContainer: {
         flex: 1,

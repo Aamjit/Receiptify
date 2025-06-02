@@ -34,6 +34,18 @@ const features = [
         description: 'View sales trends, sales count, and top items. Filter analytics by date and export reports.'
     },
     {
+        icon: 'bar-chart' as const,
+        title: 'How to Read the Report & Visuals',
+        description:
+            'The Report screen summarizes your sales data for the selected date range.\n\n' +
+            '• Total Sales: The sum of all sales in the period.\n' +
+            '• Avg. Transaction: The average value of each sale.\n' +
+            '• Top Selling Items: The most popular items, showing quantity sold and total revenue.\n' +
+            '• Sales Trend: A line chart showing daily sales totals. Peaks indicate busy days.\n' +
+            '• Sales Count: A line chart showing the number of transactions per day.\n' +
+            '• Receipts Heatmap: A grid showing which hours and days are busiest. Each row is a day (Sun–Sat), each column is an hour (0–23). Darker colors mean more receipts. Use this to spot your peak business times.'
+    },
+    {
         icon: 'exclamation-circle' as const,
         title: 'Error Handling & Alerts',
         description: 'All errors and confirmations use a branded, consistent modal for clarity.'
@@ -42,7 +54,7 @@ const features = [
         icon: 'question-circle' as const,
         title: 'Help & Support',
         description: 'Access this How It Works page anytime from the menu or Get Help screen.'
-    },
+    }
 ];
 
 export default function HowItWorksScreen() {

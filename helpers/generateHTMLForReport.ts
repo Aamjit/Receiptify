@@ -255,7 +255,7 @@ export function generateHTMLForReport({
                 </style>
             </head>
             <body>
-                <div class="container" style="padding-left: 2.5rem; padding-right: 2.5rem;">
+                <div class="container" style="padding-left: 2.5rem; padding-right: 2.5rem; padding-top: 2rem; padding-bottom: 2rem; border-radius: 16px; box-shadow: var(--shadow-md); border: 1.5px dashed var(--primary-color); box-shadow: 0 2px 8px rgba(33,150,243,0.10); margin: 2rem 2rem;">
                     <div class="header" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border-bottom: 2px solid var(--primary-color); padding-bottom: 1.2rem; margin-bottom: 1.5rem; background: none;">
                         ${businessInfo?.logo ? `<img src="${businessInfo.logo}" alt="Business Logo" style="height: 54px; object-fit: contain; margin-bottom: 2px; margin-right: 0; box-shadow: 0 1px 4px rgba(33,150,243,0.08); border-radius: 100px; border-width: 2px; border-color: rgb(229, 231, 235)" />` : ''}
                         <div style="text-align: center; width: 100%; line-height: 1.2; margin-bottom: 0.1rem;">

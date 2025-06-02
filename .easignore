@@ -18,5 +18,6 @@ node_modules/
 /android
 google-services-old*.*
 google-services*.*b6
+google-services.json
 /assets/gif/
 build-log.txt

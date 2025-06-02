@@ -38,9 +38,9 @@ export default function Index() {
             try {
                 const introSeen = await AsyncStorageIntro.getItem()
                 introSeen ? setIntroSeen(introSeen) : setIntroSeen("false")
-            } catch (e) {
+            } catch (error) {
+                console.error("Error reading intro seen status:", error);
                 setIntroSeen("false");
-                console.log(e);
             }
         };
         checkIntro();

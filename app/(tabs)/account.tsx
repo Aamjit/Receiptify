@@ -174,6 +174,11 @@ const AccountScreen: React.FC = () => {
                         setAlert({ ...alert, visible: false });
                         setLoggingOut(true);
 
+                        // Configure Google Signin
+                        GoogleSignin.configure({
+                            webClientId: process.env.EXPO_PUBLIC_CLIENT_ID // Replace with your actual web client ID from 
+                        });
+
                         if (GoogleSignin.getCurrentUser()) {
                             try {
                                 await GoogleSignin.signOut();

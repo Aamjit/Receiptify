@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, getAuth, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, getAuth, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
 import { collection, doc, getDocs, getFirestore, query, setDoc, where } from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
@@ -30,7 +30,8 @@ const AuthScreen = () => {
     function handleAuthStateChanged(user: any) {
         // setUser(user);
         // if (initializing) setInitializing(false);
-        if (user) {
+
+        if (user?.emailVerified) {
             router.replace('/home');
         }
     }
@@ -46,17 +47,45 @@ const AuthScreen = () => {
             setCustomAlert({ visible: true, title: 'Error', message: 'Please enter both email and password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return;
         }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setCustomAlert({ visible: true, title: 'Error', message: 'Please enter a valid email address.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+            return;
+        }
+
         if (isSignUp && password !== confirmPassword) {
             setCustomAlert({ visible: true, title: 'Error', message: 'Passwords do not match. Please retype your password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return;
         }
-
         try {
             if (!isSignUp) {
                 setLoading({ state: true, text: "Signing you in" })
-                // Sign in flow
                 const singInPro = await signInWithEmailAndPassword(getAuth(), email, password);
                 if (singInPro) {
+                    // Check if email is verified
+                    if (!singInPro.user.emailVerified) {
+                        setCustomAlert({
+                            visible: true,
+                            title: 'Email Not Verified',
+                            message: 'Please verify your email address before signing in. Check your inbox for a verification link.',
+                            actions: [
+                                {
+                                    text: 'Resend Email',
+                                    onPress: async () => {
+                                        await singInPro.user.sendEmailVerification();
+                                        setCustomAlert({ ...customAlert, visible: false });
+                                        ToastAndroid.show('Verification email sent!', ToastAndroid.SHORT);
+                                    }
+                                },
+                                { text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }
+                            ]
+                        });
+                        await getAuth().signOut();
+                        setLoading({ state: false, text: "" });
+                        return;
+                    }
                     if (Platform.OS === 'android') {
                         ToastAndroid.show('Signed in successfully!', ToastAndroid.SHORT);
                     } else {
@@ -65,55 +94,81 @@ const AuthScreen = () => {
                     router.replace({ pathname: '/home', params: { reset: 'true' } });
                 }
             } else {
+                setLoading({ state: true, text: "Creating user account..." });
+                const methods = await fetchSignInMethodsForEmail(getAuth(), email);
+
+                if (methods.length > 0) {
+                    setCustomAlert({
+                        visible: true,
+                        title: 'Error',
+                        message: 'This email is already registered. Please use a different email or sign in.',
+                        actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }]
+                    });
+                    return;
+                }
+
+                try {
+                    const userCred = await createUserWithEmailAndPassword(getAuth(), email, password);
+                    const authResult = userCred.user;
+                    if (!authResult) {
+                        throw new Error('Sign up failed: No user returned');
+                    }
+                    // Send email verification
+                    await authResult.sendEmailVerification();
+
+                    // ...existing code for Firestore user creation...
+                    const db = getFirestore();
+                    const usersCollection = collection(db, 'Users');
+                    await setDoc(doc(usersCollection), {
+                        userId: authResult.uid,
+                        name: '',
+                        email: authResult.email || '',
+                        businessLogo: '',
+                        phoneNumber: '',
+                        address: '',
+                        gstin: '',
+                        businessType: '',
+                        panNumber: '',
+                        website: '',
+                        otherInfo: '',
+                        createdAt: new Date(),
+                        new: true // Add a new field to indicate new user
+                    });
+                    if (Platform.OS === 'android') {
+                        ToastAndroid.show('Account created! Please verify your email.', ToastAndroid.SHORT);
+                    }
+                    setCustomAlert({
+                        visible: true,
+                        title: 'Verify Email',
+                        message: 'A verification link has been sent to your email. Please verify your email before signing in.',
+                        actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }]
+                    });
+                    await getAuth().signOut();
+                    // Optionally redirect to sign in screen
+                    router.replace({ pathname: '/(screens)/AuthScreen', params: { reset: 'true' } });
+                } catch (signUpError: any) {
+                    setCustomAlert({ visible: true, title: 'Account Error', message: signUpError.message || 'Failed to sign in or sign up.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+                } finally {
+                    setLoading({ state: false, text: "" });
+                }
+
                 // Sign up flow with confirmation prompt
-                setCustomAlert({
-                    visible: true,
-                    title: 'Account Create',
-                    message: 'Confirm to create a new account?\n\nMake sure you remember your password.',
-                    actions: [
-                        { text: 'Back', onPress: () => setCustomAlert({ ...customAlert, visible: false }) },
-                        {
-                            text: 'Yes',
-                            onPress: async () => {
-                                setCustomAlert({ ...customAlert, visible: false });
-                                setLoading({ state: true, text: "Creating user account..." });
-                                try {
-                                    await createUserWithEmailAndPassword(getAuth(), email, password);
-                                    const authResult = getAuth().currentUser;
-                                    if (!authResult) {
-                                        throw new Error('Sign up failed: No user returned');
-                                    }
-                                    const db = getFirestore();
-                                    const usersCollection = collection(db, 'Users');
-                                    await setDoc(doc(usersCollection), {
-                                        userId: authResult.uid,
-                                        name: '',
-                                        email: authResult.email || '',
-                                        businessLogo: '',
-                                        phoneNumber: '',
-                                        address: '',
-                                        gstin: '',
-                                        businessType: '',
-                                        panNumber: '',
-                                        website: '',
-                                        otherInfo: '',
-                                        createdAt: new Date()
-                                    });
-                                    if (Platform.OS === 'android') {
-                                        ToastAndroid.show('Account created successfully!', ToastAndroid.SHORT);
-                                    } else {
-                                        // Optionally add iOS toast/snackbar here
-                                    }
-                                    router.replace('/AccountSetupScreen');
-                                } catch (signUpError: any) {
-                                    setCustomAlert({ visible: true, title: 'Account Error', message: signUpError.message || 'Failed to sign in or sign up.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
-                                } finally {
-                                    setLoading({ state: false, text: "" });
-                                }
-                            }
-                        }
-                    ]
-                });
+                // setCustomAlert({
+                //     visible: true,
+                //     title: 'Account Create',
+                //     message: 'Confirm to create a new account?\n\nMake sure you remember your password.',
+                //     actions: [
+                //         { text: 'Back', onPress: () => setCustomAlert({ ...customAlert, visible: false }) },
+                //         {
+                //             text: 'Yes',
+                //             onPress: async () => {
+                //                 setCustomAlert({ ...customAlert, visible: false });
+                //                 // setLoading({ state: true, text: "Creating user account..." });
+
+                //             }
+                //         }
+                //     ]
+                // });
                 return;
             }
         } catch (error: any) {
@@ -169,10 +224,8 @@ const AuthScreen = () => {
                     createdAt: new Date()
                 });
             }
-            // }
 
             // Only navigate after all operations are complete
-            setLoading({ state: false, text: "" });
             if (Platform.OS === 'android') {
                 ToastAndroid.show('Signed in successfully!', ToastAndroid.SHORT);
             } else {

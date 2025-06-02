@@ -317,6 +317,7 @@ const ManageInventory = () => {
                             placeholderTextColor="#999"
                             value={category}
                             onChangeText={setCategory}
+                            autoCapitalize='words'
                             style={styles.input}
                         />
                         <View style={styles.pickerContainer}>

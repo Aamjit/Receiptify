@@ -11,7 +11,7 @@
     "lint": "expo lint",
     "eas-build-pre-install": "node ./decode-google-services.js",
     "clean:android": "cd android; ./gradlew clean; cd ..;",
-    "eas:build": "eas build --platform android --profile preview --clear-cache --build-logger-level trace --verbose-logs"
+    "eas:build": "eas build --platform android --profile production --clear-cache --build-logger-level trace --verbose-logs"
   },
   "dependencies": {
     "@expo/ui": "~0.1.1-alpha.7",

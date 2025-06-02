@@ -2,9 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { getAuth } from '@react-native-firebase/auth'
 import { addDoc, collection, getDocs, getFirestore, query, where, doc, updateDoc } from '@react-native-firebase/firestore'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useRouter } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
-import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import CustomAlertModal from '@/components/CustomAlertModal';
 
 type InventoryItem = {
     id: string
@@ -24,53 +25,11 @@ const groupByCategory = (items: InventoryItem[]) => {
     }, {} as Record<string, InventoryItem[]>)
 }
 
-const CustomAlertModal = ({ visible, title, message, onClose, actions = [] }: {
-    visible: boolean;
-    title: string;
-    message: string;
-    onClose: () => void;
-    actions?: Array<{ text: string; onPress?: () => void; style?: any }>;
-}) => {
-    return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="fade"
-            onRequestClose={onClose}
-        >
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' }}>
-                <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 28, width: '85%', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 8 }}>
-                    <Ionicons name="information-circle" size={38} color="#2196F3" style={{ marginBottom: 10 }} />
-                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#1e293b', marginBottom: 8, textAlign: 'center' }}>{title}</Text>
-                    <Text style={{ fontSize: 15, color: '#64748b', textAlign: 'center', marginBottom: 18, lineHeight: 22 }}>{message}</Text>
-                    <View style={{ flexDirection: 'row', gap: 12, alignSelf: 'flex-end' }}>
-                        {actions && actions.length > 0 ? actions.map((action, idx) => (
-                            <TouchableOpacity
-                                key={idx}
-                                style={{ backgroundColor: action.style === 'destructive' ? '#ef4444' : '#2196F3', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8, marginLeft: idx > 0 ? 8 : 0 }}
-                                onPress={() => {
-                                    onClose();
-                                    if (action.onPress) action.onPress();
-                                }}
-                            >
-                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{action.text}</Text>
-                            </TouchableOpacity>
-                        )) : (
-                            <TouchableOpacity style={{ backgroundColor: '#2196F3', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8 }} onPress={onClose}>
-                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>OK</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </View>
-            </View>
-        </Modal>
-    );
-};
-
 const CreateReceipt = () => {
     const [receiptNumber, setReceiptNumber] = useState<string>('')
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
     const [receiptItems, setReceiptItems] = useState<Record<string, number>>({})
+    const [discount, setDiscount] = useState<number>(0); // Discount in percentage
     const router = useRouter();
     const [loading, setLoading] = useState({
         state: true,
@@ -83,6 +42,13 @@ const CreateReceipt = () => {
     useEffect(() => {
         fetchInventory();
     }, []);
+
+    // Use useFocusEffect to reload data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchInventory()
+        }, [])
+    )
 
     const generateNextReceiptNumber = (lastNumber: number | undefined) => {
         // If no last number exists, start from 100
@@ -120,10 +86,12 @@ const CreateReceipt = () => {
                 const nextNumber = generateNextReceiptNumber(userData.lastReceiptNumber);
                 setReceiptNumber(nextNumber);
             }
-            setLoading({ state: false, text: "" });
         } catch (error) {
             console.error('Error fetching inventory:', error);
-            setLoading({ state: false, text: "" });
+        } finally {
+            setTimeout(() => {
+                setLoading({ state: false, text: "" });
+            }, 500);
         }
     };
 
@@ -148,28 +116,43 @@ const CreateReceipt = () => {
     }
 
     const calculateTotal = () => {
-        return Object.entries(receiptItems).reduce((total, [itemId, qty]) => {
+        const subtotal = Object.entries(receiptItems).reduce((total, [itemId, qty]) => {
             const item = inventoryItems.find(i => i.id === itemId)
             if (!item) return total
             return total + item.price * qty
-        }, 0)
+        }, 0);
+        return subtotal;
+    }
+
+    const calculateDiscountTotal = () => {
+        const subtotal = Object.entries(receiptItems).reduce((total, [itemId, qty]) => {
+            const item = inventoryItems.find(i => i.id === itemId)
+            if (!item) return total
+            return total + item.price * qty
+        }, 0);
+        // Apply discount
+        const discountedTotal = subtotal - (subtotal * (discount / 100));
+        return discountedTotal;
     }
 
     const discardReceipt = () => {
-        // Alert.alert('Discard Receipt', 'Are you sure you want to discard this receipt?', [
-        //     { text: 'Cancel', style: 'cancel' },
-        //     {
-        //         text: 'Discard',
-        //         style: 'destructive',
-        //         onPress: () => {
-        //             setReceiptItems({})
-        //             setReceiptNumber('R-' + Date.now().toString())
-        //             router.back();
-        //         },
-        //     },
-        // ])
-        router.back();
-
+        setAlert({
+            visible: true,
+            title: 'Discard Receipt',
+            message: 'Are you sure you want to discard this receipt?',
+            actions: [
+                { text: 'Cancel', style: 'cancel', onPress: () => setAlert({ ...alert, visible: false }) },
+                {
+                    text: 'Discard',
+                    style: 'destructive',
+                    onPress: () => {
+                        setReceiptItems({})
+                        setReceiptNumber('R-' + Date.now().toString())
+                        router.back();
+                    },
+                },
+            ]
+        });
     }
 
     const saveReceipt = async () => {
@@ -190,6 +173,8 @@ const CreateReceipt = () => {
             userId: userData?.uid,
             items: itemsArray,
             total: calculateTotal(),
+            totalAfterDiscount: calculateDiscountTotal(),
+            discount, // Save discount percentage
             status: "active",
             createdAt: new Date(),
             timestamp: Date.now()
@@ -213,6 +198,9 @@ const CreateReceipt = () => {
                     summary += `${item.name} x${item.quantity} = $${(item.price * item.quantity).toFixed(2)}\n`
                 }
             })
+            if (discount > 0) {
+                summary += `\nDiscount: ${discount}%`;
+            }
             summary += `\nTotal: $${calculateTotal().toFixed(2)}`
             setAlert({
                 visible: true,
@@ -226,6 +214,7 @@ const CreateReceipt = () => {
                             // Generate next receipt number
                             const nextNumber = generateNextReceiptNumber(parseInt(receiptNumber));
                             setReceiptNumber(nextNumber);
+                            setAlert({ ...alert, visible: false });
                         }
                     }
                 ]
@@ -241,12 +230,7 @@ const CreateReceipt = () => {
 
     const groupedInventory = groupByCategory(inventoryItems)
 
-    return loading.state ? (
-        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-            <ActivityIndicator size="large" color="#2196F3" />
-            <Text style={styles.loadingText}>{loading.text || 'Loading'}...</Text>
-        </View>
-    ) : inventoryItems.length === 0 ? (
+    return !loading.state && inventoryItems.length === 0 ? (
         <View style={styles.container}>
             <View style={styles.header}>
                 <View>
@@ -291,50 +275,55 @@ const CreateReceipt = () => {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView
-                style={styles.inventoryList}
-                showsVerticalScrollIndicator={true}
-            >
-                {Object.entries(groupedInventory).map(([category, items]) => (
-                    <View key={category} style={styles.categorySection}>
-                        <Text style={styles.categoryHeader}>{category}</Text>
-                        <View style={styles.itemsContainer}>
-                            {items.map(item => {
-                                const qty = receiptItems[item.id] || 0;
-                                const isOutOfStock = item.availability.toLowerCase() !== 'in stock';
-                                return (
-                                    <View key={item.id} style={styles.itemCard}>
-                                        <View style={styles.itemInfo}>
-                                            <Text style={styles.itemName}>{item.name}</Text>
-                                            <Text style={styles.itemPrice}>₹{item.price.toFixed(2)}</Text>
-                                            {isOutOfStock && (
-                                                <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 13, marginTop: 2 }}>Out of Stock</Text>
-                                            )}
+            {loading.state ? (
+                <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                    <ActivityIndicator size="large" color="#2196F3" />
+                    <Text style={styles.loadingText}>{loading.text || 'Loading'}...</Text>
+                </View>) :
+                <ScrollView
+                    style={styles.inventoryList}
+                    showsVerticalScrollIndicator={true}
+                >
+                    {Object.entries(groupedInventory).map(([category, items], idx) => (
+                        <View key={category} style={[styles.categorySection, { marginBottom: idx === Object.keys(groupedInventory).length - 1 ? 20 : 0 }]}>
+                            <Text style={styles.categoryHeader}>{category}</Text>
+                            <View style={styles.itemsContainer}>
+                                {items.map(item => {
+                                    const qty = receiptItems[item.id] || 0;
+                                    const isOutOfStock = item.availability.toLowerCase() !== 'in stock';
+                                    return (
+                                        <View key={item.id} style={styles.itemCard}>
+                                            <View style={styles.itemInfo}>
+                                                <Text style={styles.itemName}>{item.name}</Text>
+                                                <Text style={styles.itemPrice}>₹{item.price.toFixed(2)}</Text>
+                                                {isOutOfStock && (
+                                                    <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 13, marginTop: 2 }}>Out of Stock</Text>
+                                                )}
+                                            </View>
+                                            <View style={styles.quantityControls}>
+                                                <TouchableOpacity
+                                                    onPress={() => removeItem(item.id)}
+                                                    style={[styles.controlButton, qty === 0 && styles.controlButtonDisabled]}
+                                                    disabled={isOutOfStock}
+                                                >
+                                                    <Ionicons name="remove" size={20} color="#fff" />
+                                                </TouchableOpacity>
+                                                <Text style={styles.quantityText}>{qty}</Text>
+                                                <TouchableOpacity
+                                                    onPress={() => addItem(item.id)}
+                                                    style={[styles.controlButton, (isOutOfStock || false) && styles.controlButtonDisabled]}
+                                                    disabled={isOutOfStock}
+                                                >
+                                                    <Ionicons name="add" size={20} color="#fff" />
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
-                                        <View style={styles.quantityControls}>
-                                            <TouchableOpacity
-                                                onPress={() => removeItem(item.id)}
-                                                style={[styles.controlButton, qty === 0 && styles.controlButtonDisabled]}
-                                                disabled={isOutOfStock}
-                                            >
-                                                <Ionicons name="remove" size={20} color="#fff" />
-                                            </TouchableOpacity>
-                                            <Text style={styles.quantityText}>{qty}</Text>
-                                            <TouchableOpacity
-                                                onPress={() => addItem(item.id)}
-                                                style={[styles.controlButton, (isOutOfStock || false) && styles.controlButtonDisabled]}
-                                                disabled={isOutOfStock}
-                                            >
-                                                <Ionicons name="add" size={20} color="#fff" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                )
-                            })}
+                                    )
+                                })}
+                            </View>
                         </View>
-                    </View>
-                ))}
-            </ScrollView>
+                    ))}
+                </ScrollView>}
 
             <LinearGradient
                 colors={['rgba(255,255,255,0)', '#ffffff']}
@@ -344,9 +333,58 @@ const CreateReceipt = () => {
 
             <View style={styles.footer}>
                 <View style={styles.totalContainer}>
-                    <Text style={styles.totalLabel}>Total Amount</Text>
-                    <Text style={styles.totalText}>₹{calculateTotal().toFixed(2)}</Text>
+                    {/* Discount Area */}
+                    <View>
+                        <Text style={styles.totalLabel}>Discount (%)</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                            <TouchableOpacity
+                                style={[styles.controlButton, discount <= 0 && styles.controlButtonDisabled]}
+                                onPress={() => setDiscount(d => Math.max(0, d - 1))}
+                                disabled={discount <= 0}
+                            >
+                                <Ionicons name="remove" size={20} color="#fff" />
+                            </TouchableOpacity>
+                            <TextInput
+                                style={[styles.quantityText, { minWidth: 32, marginHorizontal: 8, borderWidth: 1, borderColor: '#eee', borderRadius: 6, textAlign: 'center', backgroundColor: '#fff', fontSize: 16, paddingVertical: 0, paddingHorizontal: 0, height: 32, lineHeight: 28 }]}
+                                keyboardType="numeric"
+                                value={discount.toString()}
+                                onChangeText={text => {
+                                    let val = parseInt(text.replace(/[^0-9]/g, ''), 10);
+                                    if (isNaN(val)) val = 0;
+                                    if (val > 100) val = 100;
+                                    setDiscount(val);
+                                }}
+                                maxLength={3}
+                                returnKeyType="done"
+                            />
+                            <Text style={{ fontSize: 16, color: '#666', marginRight: 8 }}>%</Text>
+                            <TouchableOpacity
+                                style={styles.controlButton}
+                                onPress={() => setDiscount(d => Math.min(100, d + 1))}
+                                disabled={discount >= 100}
+                            >
+                                <Ionicons name="add" size={20} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', flex: 1 }}>
+                        <View style={{ marginBottom: 6 }}>
+                            <Text style={styles.totalLabel}>Subtotal</Text>
+                            <Text style={styles.subtotalAmount}>₹{calculateTotal().toFixed(2)}</Text>
+                        </View>
+                        {/* {discount > 0 && (
+                            <View style={{ marginBottom: 6 }}>
+                                <Text style={styles.discountLabel}>Discount</Text>
+                                <Text style={styles.discountAmount}>{discount}%</Text>
+                            </View>
+                        )} */}
+                        <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 8, marginTop: 2 }}>
+                            <Text style={styles.totalLabel}>Grand Total</Text>
+                            <Text style={styles.finalTotalAmount}>₹{calculateDiscountTotal().toFixed(2)}</Text>
+                        </View>
+                    </View>
                 </View>
+
                 <TouchableOpacity
                     onPress={saveReceipt}
                     style={[
@@ -364,7 +402,7 @@ const CreateReceipt = () => {
                 title={alert.title}
                 message={alert.message}
                 actions={alert.actions}
-                onClose={() => setAlert({ ...alert, visible: false })}
+                onRequestClose={() => setAlert({ ...alert, visible: false })}
             />
         </View>
     )
@@ -410,7 +448,6 @@ const styles = StyleSheet.create({
     inventoryList: {
         flex: 1,
         paddingHorizontal: 20,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 0,
     },
     categorySection: {
         marginBlock: 8
@@ -491,16 +528,35 @@ const styles = StyleSheet.create({
     },
     totalContainer: {
         marginBottom: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     totalLabel: {
         fontSize: 15,
         color: '#666',
         marginBottom: 4,
     },
-    totalText: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#1a1a1a',
+    subtotalAmount: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#334155',
+    },
+    discountLabel: {
+        fontSize: 13,
+        color: '#64748b',
+        marginBottom: 2,
+    },
+    discountAmount: {
+        fontSize: 18,
+        color: '#f59e42',
+        fontWeight: '600',
+    },
+    finalTotalAmount: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#0ea5e9',
+        marginTop: 2,
     },
     saveButton: {
         backgroundColor: '#2196F3',

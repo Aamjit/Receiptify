@@ -19,12 +19,14 @@ type ReceiptItem = {
 };
 
 type Receipt = {
-    id: string;
-    receiptNumber: string;
-    date: string;
-    total: number;
-    items: ReceiptItem[];
-    timestamp: number;
+    id: string
+    receiptNumber: string
+    date: string
+    total: number
+    totalAfterDiscount?: number
+    discount?: number // Add discount field
+    items: ReceiptItem[]
+    timestamp?: number | null
     status: 'active' | 'complete';
 };
 
@@ -99,6 +101,7 @@ export default function Report() {
     const [exporting, setExporting] = useState(false);
     const [userData, setUserDate] = useState<any>();
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
+    const [receiptsHeatmap, setReceiptsHeatmap] = useState<{ day: string; hour: number; count: number }[]>([]);
 
     const fetchReceipts = async () => {
         try {
@@ -196,6 +199,26 @@ export default function Report() {
             .map(([date, count]) => ({ date, count }))
             .sort((a, b) => a.date.localeCompare(b.date));
         setDailySalesCount(dailySalesCountArray);
+
+        // Receipts Heatmap: Count receipts by day of week and hour
+        const heatmapMap = new Map<string, Map<number, number>>(); // day -> hour -> count
+        receiptsData.forEach(receipt => {
+            if (receipt.timestamp) {
+                const dateObj = new Date(receipt.timestamp);
+                const day = dateObj.toLocaleDateString('en-US', { weekday: 'short' }); // e.g., 'Mon'
+                const hour = dateObj.getHours();
+                if (!heatmapMap.has(day)) heatmapMap.set(day, new Map());
+                const hourMap = heatmapMap.get(day)!;
+                hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
+            }
+        });
+        const heatmapArray: { day: string; hour: number; count: number }[] = [];
+        Array.from(heatmapMap.entries()).forEach(([day, hourMap]) => {
+            Array.from(hourMap.entries()).forEach(([hour, count]) => {
+                heatmapArray.push({ day, hour, count });
+            });
+        });
+        setReceiptsHeatmap(heatmapArray);
     };
 
     const fetchUserData = async () => {
@@ -393,92 +416,131 @@ export default function Report() {
                 ))}
             </View>
 
-            {(dailySales.length > 0 || dailySalesCount.length > 0) && <View style={styles.chartContainer}>
-                {dailySales.length > 0 && (
-                    <View>
-                        <Text style={styles.sectionTitle}>Sales Trend</Text>
-                        <ScrollView horizontal>
-                            <LineChart
-                                data={{
-                                    labels: dailySales.map(sale => sale.date.slice(5)),
-                                    datasets: [{
-                                        data: dailySales.map(sale => {
-                                            return sale.total
-                                        })
-                                    }]
-                                }}
-                                width={Math.max(Dimensions.get("window").width, dailySales.length * 50)}
-                                height={220}
-                                yAxisLabel="₹"
-                                yAxisSuffix=""
-                                chartConfig={{
-                                    backgroundColor: "#ffffff",
-                                    backgroundGradientFrom: "#ffffff",
-                                    backgroundGradientTo: "#ffffff",
-                                    decimalPlaces: 0,
-                                    color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
-                                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                                    style: {
+            {(dailySales.length > 0 || dailySalesCount.length > 0 || receiptsHeatmap.length > 0)
+                && <View style={styles.chartContainer}>
+                    <Text style={[styles.sectionTitle, { fontSize: 28 }]}>Report Visualization</Text>
+                    {dailySales.length > 0 && (
+                        <View>
+                            <Text style={[styles.sectionTitle]}>Sales Trend</Text>
+                            <ScrollView horizontal>
+                                <LineChart
+                                    data={{
+                                        labels: dailySales.map(sale => sale.date.slice(5)),
+                                        datasets: [{
+                                            data: dailySales.map(sale => {
+                                                return sale.total
+                                            })
+                                        }]
+                                    }}
+                                    width={Math.max(Dimensions.get("window").width, dailySales.length * 50)}
+                                    height={220}
+                                    yAxisLabel="₹"
+                                    yAxisSuffix=""
+                                    chartConfig={{
+                                        backgroundColor: "#ffffff",
+                                        backgroundGradientFrom: "#ffffff",
+                                        backgroundGradientTo: "#ffffff",
+                                        decimalPlaces: 0,
+                                        color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
+                                        labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                        style: {
+                                            borderRadius: 16
+                                        },
+                                        propsForDots: {
+                                            r: "6",
+                                            strokeWidth: "2",
+                                            stroke: "#2196F3"
+                                        }
+                                    }}
+                                    bezier
+                                    style={{
+                                        marginVertical: 8,
                                         borderRadius: 16
-                                    },
-                                    propsForDots: {
-                                        r: "6",
-                                        strokeWidth: "2",
-                                        stroke: "#2196F3"
-                                    }
-                                }}
-                                bezier
-                                style={{
-                                    marginVertical: 8,
-                                    borderRadius: 16
-                                }}
-                            />
-                        </ScrollView>
-                    </View>
-                )}
+                                    }}
+                                />
+                            </ScrollView>
+                        </View>
+                    )}
 
 
-                {dailySalesCount.length > 0 && (
-                    <View>
-                        <Text style={styles.sectionTitle}>Sales Count (Transactions per Day)</Text>
-                        <ScrollView horizontal>
-                            <LineChart
-                                data={{
-                                    labels: dailySalesCount.map(sale => sale.date.slice(5)),
-                                    datasets: [{
-                                        data: dailySalesCount.map(sale => sale.count)
-                                    }]
-                                }}
-                                width={Math.max(Dimensions.get("window").width, dailySalesCount.length * 50)}
-                                height={220}
-                                yAxisLabel=""
-                                yAxisSuffix=" receipts"
-                                chartConfig={{
-                                    backgroundColor: "#ffffff",
-                                    backgroundGradientFrom: "#ffffff",
-                                    backgroundGradientTo: "#ffffff",
-                                    decimalPlaces: 0,
-                                    color: (opacity = 1) => `rgba(255, 152, 0, ${opacity})`,
-                                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                                    style: {
+                    {dailySalesCount.length > 0 && (
+                        <View>
+                            <Text style={styles.sectionTitle}>Sales Count (Transactions per Day)</Text>
+                            <ScrollView horizontal>
+                                <LineChart
+                                    data={{
+                                        labels: dailySalesCount.map(sale => sale.date.slice(5)),
+                                        datasets: [{
+                                            data: dailySalesCount.map(sale => sale.count)
+                                        }]
+                                    }}
+                                    width={Math.max(Dimensions.get("window").width, dailySalesCount.length * 50)}
+                                    height={220}
+                                    yAxisLabel=""
+                                    yAxisSuffix=" receipts"
+                                    chartConfig={{
+                                        backgroundColor: "#ffffff",
+                                        backgroundGradientFrom: "#ffffff",
+                                        backgroundGradientTo: "#ffffff",
+                                        decimalPlaces: 0,
+                                        color: (opacity = 1) => `rgba(255, 152, 0, ${opacity})`,
+                                        labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                        style: {
+                                            borderRadius: 16
+                                        },
+                                        propsForDots: {
+                                            r: "6",
+                                            strokeWidth: "2",
+                                            stroke: "#FF9800"
+                                        }
+                                    }}
+                                    bezier
+                                    style={{
+                                        marginVertical: 8,
                                         borderRadius: 16
-                                    },
-                                    propsForDots: {
-                                        r: "6",
-                                        strokeWidth: "2",
-                                        stroke: "#FF9800"
-                                    }
-                                }}
-                                bezier
-                                style={{
-                                    marginVertical: 8,
-                                    borderRadius: 16
-                                }}
-                            />
-                        </ScrollView>
-                    </View>
-                )}
-            </View>}
+                                    }}
+                                />
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    {receiptsHeatmap.length > 0 && (
+                        <View>
+                            <Text style={styles.sectionTitle}>Receipts Heatmap (Day vs Hour)</Text>
+                            <ScrollView horizontal>
+                                <View>
+                                    {/* Simple text-based heatmap for now */}
+                                    <View style={{ flexDirection: 'row', marginBottom: 4, alignItems: 'flex-end', backgroundColor: '#f3f4f6', padding: 2, borderRadius: 4 }}>
+                                        <Text style={{ width: 40 }}></Text>
+                                        {[...Array(24).keys()].map(h => (
+                                            <View key={h} style={{ width: 22, height: 22, alignItems: 'center', margin: 1, justifyContent: 'center' }}>
+                                                <Text style={{ textAlign: 'center', fontSize: 10, lineHeight: 22 }}>{h}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                        <View key={day} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Text style={{ width: 40, fontSize: 12, color: '#888' }}>{day}</Text>
+                                            {[...Array(24).keys()].map(hour => {
+                                                const cell = receiptsHeatmap.find(e => e.day === day && e.hour === hour);
+                                                const count = cell ? cell.count : 0;
+                                                const bg = count === 0 ? '#f3f4f6' : `rgba(33,150,243,${Math.min(0.15 + count * 0.15, 0.9)})`;
+                                                return (
+                                                    <View key={hour} style={{ width: 22, height: 22, backgroundColor: bg, margin: 1, borderRadius: 3, alignItems: 'center', justifyContent: 'center' }}>
+                                                        {count > 0 && <Text style={{ fontSize: 10, color: '#fff', fontWeight: 'bold' }}>{count}</Text>}
+                                                    </View>
+                                                );
+                                            })}
+                                        </View>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        </View>
+                    )}
+
+
+                </View>}
+
 
             <CustomAlertModal
                 visible={alert.visible}
