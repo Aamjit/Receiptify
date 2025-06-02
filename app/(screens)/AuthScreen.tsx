@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
 import { collection, doc, getDocs, getFirestore, query, setDoc, where } from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
@@ -23,11 +23,6 @@ const AuthScreen = () => {
         GoogleSignin.configure({
             webClientId: process.env.EXPO_PUBLIC_CLIENT_ID // Replace with your actual web client ID from Firebase console
         });
-
-        // Redirect if already logged in
-        // if (getAuth().currentUser) {
-        //     router.replace('/home');
-        // }
     }, []);
 
 
@@ -133,6 +128,9 @@ const AuthScreen = () => {
         setLoading({ state: true, text: "Logging in" });
         try {
             await GoogleSignin.hasPlayServices();
+            if (GoogleSignin.getCurrentUser()) {
+                await GoogleSignin.clearCachedAccessToken(GoogleSignin.getCurrentUser()?.idToken as string);
+            }
 
             const userInfo = await GoogleSignin.signIn();
             const idToken = userInfo?.data?.idToken;
@@ -188,13 +186,21 @@ const AuthScreen = () => {
         }
     };
 
-    const handleForgotPassword = (e: any) => {
+    const handleForgotPassword = async (e: any) => {
         e.preventDefault();
         if (!email) {
             setCustomAlert({ visible: true, title: 'Error', message: 'Please enter your email address to reset your password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return;
         }
-        setCustomAlert({ visible: true, title: 'Password Reset', message: `Password reset link sent to ${email} (functionality to be implemented).`, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+        setLoading({ state: true, text: 'Sending reset email' });
+        try {
+            await sendPasswordResetEmail(getAuth(), email);
+            setCustomAlert({ visible: true, title: 'Password Reset', message: `Password reset link sent to ${email}. Please check your inbox.`, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+        } catch (error: any) {
+            setCustomAlert({ visible: true, title: 'Error', message: error.message || 'Failed to send password reset email.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+        } finally {
+            setLoading({ state: false, text: '' });
+        }
     };
 
     return (

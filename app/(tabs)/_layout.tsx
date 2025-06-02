@@ -63,8 +63,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
-          marginTop: 4,
-          // marginBottom: Platform.OS === 'ios' ? 0 : 8,
+          insetBlock: 4,
         },
       }}>
       <Tabs.Screen
@@ -102,7 +101,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBarBackground: {
-    overflow: 'hidden',
+    // overflow: 'hidden',
     padding: 0,
     margin: 0,
     backgroundColor: 'transparent',

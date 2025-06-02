@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert, ToastAndroid } from 'react-native';
 import CustomAlertModal from '@/components/CustomAlertModal';
 import EditProfileModal from '../components/EditProfileModal';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> = ({ visible, onClose }) => {
     const [currentPassword, setCurrentPassword] = useState('');
@@ -172,12 +173,27 @@ const AccountScreen: React.FC = () => {
                     onPress: async () => {
                         setAlert({ ...alert, visible: false });
                         setLoggingOut(true);
-                        setUser(null);
-                        await signOut(getAuth());
+
+                        if (GoogleSignin.getCurrentUser()) {
+                            try {
+                                await GoogleSignin.signOut();
+                            } catch (error) {
+                                console.error('Error signing out from Google:', error);
+                                ToastAndroid.show('Error signing out from Google', ToastAndroid.SHORT);
+                                setLoggingOut(false);
+                                return;
+                            }
+                        }
+                        // console.log("Firebase", getAuth().currentUser);
+                        if (getAuth().currentUser) {
+                            await signOut(getAuth());
+                        }
+
                         setTimeout(() => {
                             ToastAndroid.show('Logged out successfully!', ToastAndroid.SHORT);
-                            router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
+                            setUser(null);
                             setLoggingOut(false);
+                            router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
                         }, 2000);
                     }
                 }
@@ -194,7 +210,7 @@ const AccountScreen: React.FC = () => {
                 </View>
             )}
             <StatusBar barStyle="dark-content" />
-            <Text style={styles.title}>User Account</Text>
+            <Text style={styles.title}> Account Details </Text>
             <View style={styles.profileImageContainer}>
                 {user?.businessLogo ? (
                     <View>
