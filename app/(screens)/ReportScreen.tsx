@@ -405,15 +405,21 @@ export default function Report() {
 
             <View style={styles.sectionContainer}>
                 <Text style={styles.sectionTitle}>Top Selling Items</Text>
-                {topItems.map((item, index) => (
-                    <View key={index} style={styles.topItemRow}>
-                        <Text style={styles.itemName}>{item.name}</Text>
-                        <View style={styles.itemDetails}>
-                            <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
-                            <Text style={styles.itemRevenue}>₹{item.revenue.toFixed(2)}</Text>
+                {topItems.length === 0 ? (
+                    <Text style={{ color: '#888', textAlign: 'center', marginVertical: 12 }}>
+                        No sales data for this period.
+                    </Text>
+                ) : (
+                    topItems.map((item, index) => (
+                        <View key={index} style={styles.topItemRow}>
+                            <Text style={styles.itemName}>{item.name}</Text>
+                            <View style={styles.itemDetails}>
+                                <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
+                                <Text style={styles.itemRevenue}>₹{item.revenue.toFixed(2)}</Text>
+                            </View>
                         </View>
-                    </View>
-                ))}
+                    ))
+                )}
             </View>
 
             {(dailySales.length > 0 || dailySalesCount.length > 0 || receiptsHeatmap.length > 0)
@@ -537,10 +543,7 @@ export default function Report() {
                             </ScrollView>
                         </View>
                     )}
-
-
                 </View>}
-
 
             <CustomAlertModal
                 visible={alert.visible}

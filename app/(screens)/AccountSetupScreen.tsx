@@ -43,7 +43,7 @@ const AccountSetupScreen = () => {
     };
 
     const checkFormValidation = () => {
-        const requiredFields: (keyof typeof formData)[] = ['name', 'address', 'phoneNumber', 'businessType'];
+        const requiredFields: (keyof typeof formData)[] = ['name', 'phoneNumber', 'businessType'];
         for (const field of requiredFields) {
             if (!formData[field]) {
                 setCustomAlert({ visible: true, title: 'Validation Error', message: `${field.replace(/([A-Z])/g, ' $1')} is required.`, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
@@ -54,15 +54,37 @@ const AccountSetupScreen = () => {
             setCustomAlert({ visible: true, title: 'Validation Error', message: 'Phone number must be at least 10 digits.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return false;
         }
-        if (formData.gstin.length !== 15) {
-            setCustomAlert({ visible: true, title: 'Validation Error', message: 'GSTIN must be exactly 15 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
-            return false;
-        }
-        if (formData.panNumber.length !== 10) {
-            setCustomAlert({ visible: true, title: 'Validation Error', message: 'PAN Number must be exactly 10 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
-            return false;
-        }
+        // if (formData.gstin.length !== 15) {
+        //     setCustomAlert({ visible: true, title: 'Validation Error', message: 'GSTIN must be exactly 15 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+        //     return false;
+        // }
+        // if (formData.panNumber.length !== 10) {
+        //     setCustomAlert({ visible: true, title: 'Validation Error', message: 'PAN Number must be exactly 10 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+        //     return false;
+        // }
         return true;
+    }
+
+    const uploadImageToSupabase = async (image: ImagePickerAsset | null): Promise<{ data: { publicUrl: string; }; } | null> => {
+        if (!image) {
+            return null;
+        }
+
+        const arraybuffer = await fetch(accountImage?.uri ?? '').then((res) => res.arrayBuffer())
+
+        const fileExt = accountImage?.uri?.split('.').pop()?.toLowerCase() ?? 'jpeg'
+        const path = `${userData?.uid}/${userData?.uid}.${fileExt}`
+        const { data, error: uploadError } = arraybuffer && await supabase.storage
+            .from('receiptify')
+            .upload(path, arraybuffer, {
+                contentType: accountImage?.mimeType ?? 'image/jpeg',
+            })
+
+        if (uploadError) {
+            setCustomAlert({ visible: true, title: 'Error', message: 'Failed to upload profile image. Please try again.\n' + uploadError.message, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+        }
+
+        return supabase.storage.from('receiptify').getPublicUrl(data?.path ?? '');
     }
 
     const handleSubmit = async () => {
@@ -80,21 +102,7 @@ const AccountSetupScreen = () => {
             }
 
             // upload user image to supabase storage
-            const arraybuffer = await fetch(accountImage?.uri ?? '').then((res) => res.arrayBuffer())
-
-            const fileExt = accountImage?.uri?.split('.').pop()?.toLowerCase() ?? 'jpeg'
-            const path = `${userData?.uid}/${userData?.uid}.${fileExt}`
-            const { data, error: uploadError } = arraybuffer && await supabase.storage
-                .from('receiptify')
-                .upload(path, arraybuffer, {
-                    contentType: accountImage?.mimeType ?? 'image/jpeg',
-                })
-
-            if (uploadError) {
-                setCustomAlert({ visible: true, title: 'Error', message: 'Failed to upload profile image. Please try again.\n' + uploadError.message, actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
-            }
-
-            const imageUrl = supabase.storage.from('receiptify').getPublicUrl(data?.path ?? '');
+            const imageUrl = await uploadImageToSupabase(accountImage);
 
             // Update user document in Firestore to add the image URL
             if (!userData?.uid) {
@@ -118,7 +126,8 @@ const AccountSetupScreen = () => {
                 panNumber: formData.panNumber || '',
                 website: formData.website || '',
                 otherInfo: formData.otherInfo || '',
-                businessLogo: imageUrl.data.publicUrl || '',
+                businessLogo: imageUrl?.data.publicUrl || '',
+                new: false, // Mark the account as set up
             })
                 .then(() => {
                     // console.log("User document updated with profile picture URL");

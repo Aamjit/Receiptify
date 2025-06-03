@@ -11,7 +11,7 @@
     "lint": "expo lint",
     "eas-build-pre-install": "node ./decode-google-services.js",
     "clean:android": "cd android; ./gradlew clean; cd ..;",
-    "eas:build": "eas build --platform android --profile production --clear-cache --build-logger-level trace --verbose-logs"
+    "eas:build": "eas build --platform android --profile production --build-logger-level trace --verbose-logs"
   },
   "dependencies": {
     "@expo/ui": "~0.1.1-alpha.7",
@@ -53,7 +53,7 @@
     "react-native-linear-gradient": "^2.8.3",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
-    "react-native-screens": "~4.10.0",
+    "react-native-screens": "~4.11.1",
     "react-native-svg": "15.11.2",
     "react-native-svg-transformer": "^1.5.1",
     "react-native-web": "~0.20.0",

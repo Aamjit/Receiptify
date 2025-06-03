@@ -28,18 +28,26 @@ const AuthScreen = () => {
 
     // Handle user state changes
     function handleAuthStateChanged(user: any) {
-        // setUser(user);
-        // if (initializing) setInitializing(false);
 
-        if (user?.emailVerified) {
-            router.replace('/home');
-        }
     }
 
     useEffect(() => {
         const subscriber = onAuthStateChanged(getAuth(), handleAuthStateChanged);
         return subscriber; // unsubscribe on unmount
     }, []);
+
+    const checkIfUserNew = async (userId: string) => {
+        const db = getFirestore();
+        const usersCollection = collection(db, 'Users');
+        const q = query(usersCollection, where('userId', '==', userId));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0];
+            const userData = userDoc.data();
+            return userData.new; // Return the 'new' field value
+        }
+        return false; // User not found or 'new' field not set
+    }
 
     const handleSignInOrSignUp = async (e: any) => {
         e.preventDefault();
@@ -91,7 +99,11 @@ const AuthScreen = () => {
                     } else {
                         // Optionally add iOS toast/snackbar here
                     }
-                    router.replace({ pathname: '/home', params: { reset: 'true' } });
+
+                    const isUserNew = await checkIfUserNew(singInPro.user.uid);
+                    isUserNew ? router.replace({ pathname: '/AccountSetupScreen' }) : router.replace({ pathname: '/home', params: { reset: 'true' } });
+                } else {
+                    ToastAndroid.show('Unable to signin! Please try again later.', ToastAndroid.SHORT);
                 }
             } else {
                 setLoading({ state: true, text: "Creating user account..." });
@@ -113,6 +125,8 @@ const AuthScreen = () => {
                     if (!authResult) {
                         throw new Error('Sign up failed: No user returned');
                     }
+
+                    setLoading({ state: true, text: "Sending verification email..." });
                     // Send email verification
                     await authResult.sendEmailVerification();
 
@@ -135,7 +149,7 @@ const AuthScreen = () => {
                         new: true // Add a new field to indicate new user
                     });
                     if (Platform.OS === 'android') {
-                        ToastAndroid.show('Account created! Please verify your email.', ToastAndroid.SHORT);
+                        ToastAndroid.show('A verification email has been sent to your email', ToastAndroid.LONG);
                     }
                     setCustomAlert({
                         visible: true,

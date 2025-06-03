@@ -108,6 +108,7 @@ const ActiveReceipts = () => {
             if (!querySnapshot.empty) {
                 const userDoc = querySnapshot.docs[0]
                 const userData = userDoc.data()
+
                 const inventoryArray = userData.inventory || []
                 // Map inventory array to expected format with id, name, price
                 const itemsData = inventoryArray.map((item: any, index: number) => ({
@@ -151,6 +152,7 @@ const ActiveReceipts = () => {
             quantity: 1,
             price,
         }
+        ToastAndroid.showWithGravity(`${name} added to receipt`, ToastAndroid.SHORT, ToastAndroid.BOTTOM);
         setItems(prevItems => [...prevItems, newItem])
     }
 
@@ -209,6 +211,7 @@ const ActiveReceipts = () => {
     };
 
     const finalizeReceipt = async () => {
+        saveChanges();
         if (selectedReceipt) {
             const db = getFirestore()
             const receiptRef = doc(db, 'Receipts', selectedReceipt.id)

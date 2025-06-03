@@ -29,6 +29,8 @@ const ManageInventory = () => {
     const [isFormVisible, setIsFormVisible] = useState(true);
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
+    const [showCategoryModal, setShowCategoryModal] = useState(false);
+    const [categoryQuery, setCategoryQuery] = useState('');
     const animatedHeight = useRef(new Animated.Value(1)).current;
     const lastScrollY = useRef(0);
     const scrollThreshold = 10; // minimum scroll distance to trigger collapse
@@ -253,6 +255,9 @@ const ManageInventory = () => {
     //     );
     // }
 
+    // Extract unique categories for autocomplete
+    const categoryOptions = Array.from(new Set(inventory.map(item => item.category).filter(Boolean)));
+
     return (
         <View style={styles.container}>
             {/* <View style={styles.header}>
@@ -312,14 +317,19 @@ const ManageInventory = () => {
                             keyboardType="numeric"
                             style={styles.input}
                         />
-                        <TextInput
-                            placeholder="Category (e.g., Electronics, Clothing)"
-                            placeholderTextColor="#999"
-                            value={category}
-                            onChangeText={setCategory}
-                            autoCapitalize='words'
-                            style={styles.input}
-                        />
+                        {/* Category Modal Dropdown */}
+                        <View style={styles.pickerContainer}>
+                            <Text style={styles.pickerLabel}>Category</Text>
+                            <TouchableOpacity
+                                style={styles.pickerButton}
+                                onPress={() => {
+                                    setCategoryQuery('');
+                                    setShowCategoryModal(true);
+                                }}
+                            >
+                                <Text style={styles.pickerButtonText}>{category ? category : 'Select or Add Category'}</Text>
+                            </TouchableOpacity>
+                        </View>
                         <View style={styles.pickerContainer}>
                             <Text style={styles.pickerLabel}>Availability</Text>
                             <TouchableOpacity
@@ -422,6 +432,71 @@ const ManageInventory = () => {
                             </TouchableOpacity>
                         ))}
                     </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* // Category Modal */}
+            <Modal
+                visible={showCategoryModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowCategoryModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowCategoryModal(false)}
+                >
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        style={[styles.modalContent, { paddingBottom: 10 }]}
+                        onPress={() => { }}
+                    >
+                        <Text style={styles.modalTitle}>Select or Add Category</Text>
+                        <TextInput
+                            placeholder="Type to filter or add..."
+                            value={categoryQuery}
+                            placeholderTextColor={'#999'}
+                            onChangeText={setCategoryQuery}
+                            style={[styles.input, { marginBottom: 8 }]}
+                            autoFocus
+                        />
+                        <ScrollView style={{ maxHeight: 280, marginBottom: 8 }}>
+                            {categoryOptions.filter(option =>
+                                option.toLowerCase().includes(categoryQuery.toLowerCase())
+                            ).map(option => (
+                                <TouchableOpacity
+                                    key={option}
+                                    style={[
+                                        styles.modalOption,
+                                        category === option && styles.modalOptionSelected
+                                    ]}
+                                    onPress={() => {
+                                        setCategory(option);
+                                        setCategoryQuery(option);
+                                        setShowCategoryModal(false);
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.modalOptionText,
+                                        category === option && styles.modalOptionTextSelected
+                                    ]}>{option}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            {categoryQuery.length > 0 &&
+                                !categoryOptions.some(option => option.toLowerCase() === categoryQuery.toLowerCase()) && (
+                                    <TouchableOpacity
+                                        style={[styles.modalOption, { backgroundColor: '#e0f7fa' }]}
+                                        onPress={() => {
+                                            setCategory(categoryQuery);
+                                            setShowCategoryModal(false);
+                                        }}
+                                    >
+                                        <Text style={styles.modalOptionText}>+ Add "{categoryQuery}"</Text>
+                                    </TouchableOpacity>
+                                )}
+                        </ScrollView>
+                    </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
 
@@ -687,7 +762,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 20,
         width: '80%',
-        maxWidth: 400,
+        maxWidth: 420,
     },
     modalTitle: {
         fontSize: 18,

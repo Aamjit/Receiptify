@@ -1,3 +1,4 @@
+const { log } = require('console');
 const fs = require('fs');
 const path = require('path');
 
@@ -12,8 +13,10 @@ if (!googleServicesBase64) {
 // Decode the base64 string
 const googleServicesJson = Buffer.from(googleServicesBase64, 'base64').toString('utf8');
 
+console.log('Decoded google-services.json content:', googleServicesJson.length);
+
 // Ensure the android/app directory exists
-const androidAppDir = path.join(__dirname, 'android', 'app');
+const androidAppDir = path.join(__dirname);
 if (!fs.existsSync(androidAppDir)) {
   fs.mkdirSync(androidAppDir, { recursive: true });
 }

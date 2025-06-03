@@ -103,6 +103,7 @@ const AccountScreen: React.FC = () => {
     const [imageLoading, setImageLoading] = useState(false);
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [loggingOut, setLoggingOut] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -114,8 +115,9 @@ const AccountScreen: React.FC = () => {
                 })
             } catch (error) {
                 console.error('Error checking email existence:', error);
+            } finally {
+                setLoading(false);
             }
-
         };
         fetchUser();
     }, [])
@@ -205,6 +207,15 @@ const AccountScreen: React.FC = () => {
             ]
         });
     };
+
+    if (loading) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text style={{ marginTop: 12, color: '#3b82f6', fontWeight: '600', fontSize: 16 }}>Loading account...</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>

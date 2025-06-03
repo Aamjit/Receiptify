@@ -48,7 +48,7 @@ export default function Index() {
 
     if (showSplash) return <SplashScreen />;
     if (introSeen === null) return null;
-    return <Redirect href={introSeen == "true" ? getAuth().currentUser ? "/home" : "/(screens)/AuthScreen" : "/(screens)/IntroScreen"} />;
+    return <Redirect href={introSeen == "true" ? getAuth().currentUser?.emailVerified ? "/home" : "/(screens)/AuthScreen" : "/(screens)/IntroScreen"} />;
 }
 
 const styles = StyleSheet.create({

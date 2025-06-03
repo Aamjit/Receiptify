@@ -46,7 +46,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5,
+      quality: 0.8,
       legacy: true, // Use legacy behavior for better compatibility
     });
 
@@ -54,7 +54,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
       // Compress the image before preview/upload
       const compressed = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
-        [{ resize: { width: 580 } }],
+        [{ resize: { width: 360 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
       setLogoPreview(compressed.uri);
