@@ -112,6 +112,17 @@ const ManageInventory = () => {
             return;
         }
 
+        // Check for duplicate item name (case-insensitive)
+        if (inventory.some(item => item.name.trim().toLowerCase() === name.trim().toLowerCase())) {
+            setAlert({
+                visible: true,
+                title: 'Duplicate Item',
+                message: 'An item with this name already exists in your inventory.',
+                actions: [{ text: 'OK', onPress: () => setAlert(a => ({ ...a, visible: false })) }]
+            });
+            return;
+        }
+
         const numericPrice = parseFloat(price);
         if (isNaN(numericPrice)) {
             setAlert({

@@ -1,8 +1,10 @@
+import { useAppContext } from '@/hooks/useApp';
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { getAuth } from '@react-native-firebase/auth';
+import { collection, getDocs, getFirestore, query, where } from '@react-native-firebase/firestore';
 import { Redirect } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
-import { Image, StyleSheet, Animated } from 'react-native';
+import { Image, StyleSheet, Animated, Platform } from 'react-native';
 
 function SplashScreen() {
     const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -27,6 +29,7 @@ export default function Index() {
     const AsyncStorageIntro = useAsyncStorage("receiptify-intro");
     const [introSeen, setIntroSeen] = useState<string | null>(null);
     const [showSplash, setShowSplash] = useState(true);
+    const { User, setUser } = useAppContext()
 
     useEffect(() => {
         const timer = setTimeout(() => setShowSplash(false), 3000);
@@ -43,12 +46,37 @@ export default function Index() {
                 setIntroSeen("false");
             }
         };
-        checkIntro();
+
+        (Platform.OS == 'android' || Platform.OS == 'ios') && checkIntro();
+
+        const fetchUser = async () => {
+            try {
+                // await getAuth().signOut();
+                const userId = getAuth().currentUser?.uid;
+                if (!userId) {
+                    return;
+                }
+                const db = getFirestore();
+                const usersCollection = collection(db, 'Users');
+                const q = query(usersCollection, where('userId', '==', userId));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    const userDoc = querySnapshot.docs[0];
+                    const userData = userDoc.data();
+                    setUser(userData)
+                }
+            } catch (err) {
+                console.log("Error fetching user data\n", err);
+            }
+        }
+
+        fetchUser();
     }, []);
 
     if (showSplash) return <SplashScreen />;
     if (introSeen === null) return null;
-    return <Redirect href={introSeen == "true" ? getAuth().currentUser?.emailVerified ? "/home" : "/(screens)/AuthScreen" : "/(screens)/IntroScreen"} />;
+
+    return <Redirect href={introSeen !== "true" ? "/(screens)/IntroScreen" : !getAuth().currentUser?.emailVerified ? "/(screens)/AuthScreen" : User?.new ? "/AccountSetupScreen" : "/home"} />;
 }
 
 const styles = StyleSheet.create({

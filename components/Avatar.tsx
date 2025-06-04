@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { StyleSheet, View, Alert, TouchableOpacity, Text } from 'react-native'
+import { StyleSheet, View, Alert, TouchableOpacity, Text, Image } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { Constants } from '@/constants/AppConstants';
 
 interface Props {
     size: { width?: number, height?: number }
@@ -26,26 +27,6 @@ export default function Avatar({ url, size: { width = 100, height = 100 }, onIma
         }
     }, [url])
 
-    // async function downloadImage(path: string) {
-    //     try {
-    //         const { data, error } = await supabase.storage.from('avatars').download(path)
-
-    //         if (error) {
-    //             throw error
-    //         }
-
-    //         const fr = new FileReader()
-    //         fr.readAsDataURL(data)
-    //         fr.onload = () => {
-    //             setAvatarUrl(fr.result as string)
-    //         }
-    //     } catch (error) {
-    //         if (error instanceof Error) {
-    //             console.log('Error downloading image: ', error.message)
-    //         }
-    //     }
-    // }
-
     async function uploadAvatar() {
         try {
             setUploading(true)
@@ -54,8 +35,8 @@ export default function Avatar({ url, size: { width = 100, height = 100 }, onIma
                 mediaTypes: ImagePicker.MediaTypeOptions.Images, // Restrict to only images
                 allowsMultipleSelection: false, // Can only select one image
                 allowsEditing: true, // Allows the user to crop / rotate their photo before uploading it
+                aspect: [1, 1],
                 quality: 1,
-                aspect: [1, 1], // Aspect ratio for the image picker
                 exif: false, // We don't want nor need that data.
             })
 
@@ -67,9 +48,9 @@ export default function Avatar({ url, size: { width = 100, height = 100 }, onIma
             // Compress the image to reduce file size
             const compressImage = await ImageManipulator.manipulateAsync(
                 result.assets[0].uri,
-                [{ resize: { width: 640 } }],
+                [{ resize: { width: Constants.imageCompression.resizeWidth } }],
                 {
-                    compress: 0.8, // Compress the image to 80% quality
+                    compress: Constants.imageCompression.quality, // Compress the image to 80% quality
                     format: ImageManipulator.SaveFormat.JPEG
                 }
             );
@@ -94,24 +75,29 @@ export default function Avatar({ url, size: { width = 100, height = 100 }, onIma
     }
 
     return (
-        <TouchableOpacity style={[styles.container, styles.logoPicker]} onPress={() => { uploadAvatar() }}>
+        <TouchableOpacity style={[styles.container, styles.logoPicker, { height: url ? 100 + height : 100 }]} onPress={() => { uploadAvatar() }}>
 
             {url ? (
-                // <Image
-                //     source={{ uri: avatarUrl }}
-                //     accessibilityLabel="Avatar"
-                //     style={[avatarSize, styles.avatar, styles.image]}
-                // />
-                <View style={styles.imageSelected}>
-                    <Ionicons name="image-outline" size={42} color="black" />
-                    <Text style={[styles.logoPickerText, { fontSize: 12 }]}>{imageName}</Text>
+                <View style={{ gap: 20 }}>
+                    <Image
+                        source={{ uri: url }}
+                        accessibilityLabel="Avatar"
+                        width={width}
+                        height={height}
+                        style={[styles.avatar, styles.image]}
+                    />
+                    <View style={styles.imageSelected}>
+                        <Ionicons name="image-outline" size={42} color="black" />
+                        <Text style={[styles.logoPickerText, { fontSize: 12 }]}>{imageName}</Text>
+                    </View>
                 </View>
             ) : (
                 <View style={styles.noImage}>
                     <Text style={styles.logoPickerText}>Pick Your Business Logo</Text>
                     <Text style={styles.logoPickerSubText}>MAX SIZE: 1 MB</Text>
                 </View>
-            )}
+            )
+            }
         </TouchableOpacity >
     )
 }
@@ -119,14 +105,14 @@ export default function Avatar({ url, size: { width = 100, height = 100 }, onIma
 const styles = StyleSheet.create({
     container: {
         flexGrow: 1,
-        paddingInline: 20,
+        padding: 10,
     },
     avatar: {
         borderRadius: 5,
     },
     image: {
         objectFit: 'cover',
-        paddingTop: 0,
+        paddingTop: 2,
     },
     noImage: {
         borderRadius: 5,
@@ -136,12 +122,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     logoPicker: {
-        height: 150,
         borderColor: '#ccc',
         borderWidth: 1,
         borderRadius: 8,
         marginBottom: 15,
-        justifyContent: 'center',
+        justifyContent: 'space-around',
         alignItems: 'center',
         backgroundColor: '#ededed',
     },

@@ -165,7 +165,14 @@ const CreateReceipt = () => {
         const db = getFirestore();
         const itemsArray = Object.entries(receiptItems).map(([itemId, qty]) => {
             const item = inventoryItems.find(i => i.id === itemId)
-            return item ? { id: item.id, name: item.name, quantity: qty, price: item.price } : null
+            return item ?
+                {
+                    id: item.id,
+                    name: item.name,
+                    quantity: qty,
+                    price: item.price,
+                    category: item.category
+                } : null
         }).filter(i => i !== null);
 
         const receiptData = {
@@ -336,7 +343,7 @@ const CreateReceipt = () => {
                     {/* Discount Area */}
                     <View>
                         <Text style={styles.totalLabel}>Discount (%)</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
                             <TouchableOpacity
                                 style={[styles.controlButton, discount <= 0 && styles.controlButtonDisabled]}
                                 onPress={() => setDiscount(d => Math.max(0, d - 1))}
@@ -344,20 +351,22 @@ const CreateReceipt = () => {
                             >
                                 <Ionicons name="remove" size={20} color="#fff" />
                             </TouchableOpacity>
-                            <TextInput
-                                style={[styles.quantityText, { minWidth: 32, marginHorizontal: 8, borderWidth: 1, borderColor: '#eee', borderRadius: 6, textAlign: 'center', backgroundColor: '#fff', fontSize: 16, paddingVertical: 0, paddingHorizontal: 0, height: 32, lineHeight: 28 }]}
-                                keyboardType="numeric"
-                                value={discount.toString()}
-                                onChangeText={text => {
-                                    let val = parseInt(text.replace(/[^0-9]/g, ''), 10);
-                                    if (isNaN(val)) val = 0;
-                                    if (val > 100) val = 100;
-                                    setDiscount(val);
-                                }}
-                                maxLength={3}
-                                returnKeyType="done"
-                            />
-                            <Text style={{ fontSize: 16, color: '#666', marginRight: 8 }}>%</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 8, gap: 2 }}>
+                                <TextInput
+                                    style={[styles.quantityText, { minWidth: 32, borderWidth: 1, borderColor: '#eee', borderRadius: 6, textAlign: 'center', backgroundColor: '#fff', fontSize: 16, padding: 0, height: 32, lineHeight: 28 }]}
+                                    keyboardType="numeric"
+                                    value={discount.toString()}
+                                    onChangeText={text => {
+                                        let val = parseInt(text.replace(/[^0-9]/g, ''), 10);
+                                        if (isNaN(val)) val = 0;
+                                        if (val > 100) val = 100;
+                                        setDiscount(val);
+                                    }}
+                                    maxLength={3}
+                                    returnKeyType="done"
+                                />
+                                <Text style={{ fontSize: 18, color: '#666' }}>%</Text>
+                            </View>
                             <TouchableOpacity
                                 style={styles.controlButton}
                                 onPress={() => setDiscount(d => Math.min(100, d + 1))}
@@ -378,8 +387,8 @@ const CreateReceipt = () => {
                                 <Text style={styles.discountAmount}>{discount}%</Text>
                             </View>
                         )} */}
-                        <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 8, marginTop: 2 }}>
-                            <Text style={styles.totalLabel}>Grand Total</Text>
+                        <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 2, marginTop: 2 }}>
+                            <Text style={styles.totalLabel}>Total Amount</Text>
                             <Text style={styles.finalTotalAmount}>₹{calculateDiscountTotal().toFixed(2)}</Text>
                         </View>
                     </View>
@@ -536,6 +545,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#666',
         marginBottom: 4,
+        marginHorizontal: 'auto'
     },
     subtotalAmount: {
         fontSize: 20,
@@ -556,7 +566,7 @@ const styles = StyleSheet.create({
         fontSize: 26,
         fontWeight: 'bold',
         color: '#0ea5e9',
-        marginTop: 2,
+        marginLeft: 'auto'
     },
     saveButton: {
         backgroundColor: '#2196F3',

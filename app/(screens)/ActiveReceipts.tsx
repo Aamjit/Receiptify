@@ -447,28 +447,30 @@ const ActiveReceipts = () => {
                                                         onPress={() => setDiscount(d => Math.max(0, d - 1))}
                                                         disabled={discount <= 0}
                                                     >
-                                                        <Ionicons name="remove" size={16} color="#fff" />
+                                                        <Ionicons name="remove" size={20} color="#fff" />
                                                     </TouchableOpacity>
-                                                    <TextInput
-                                                        style={styles.discountInput}
-                                                        keyboardType="numeric"
-                                                        value={discount.toString()}
-                                                        onChangeText={text => {
-                                                            let val = parseInt(text.replace(/[^0-9]/g, ''), 10);
-                                                            if (isNaN(val)) val = 0;
-                                                            if (val > 100) val = 100;
-                                                            setDiscount(val);
-                                                        }}
-                                                        maxLength={3}
-                                                        returnKeyType="done"
-                                                    />
-                                                    <Text style={{ fontSize: 16, color: '#666', marginHorizontal: 8 }}>%</Text>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 4, gap: 2 }}>
+                                                        <TextInput
+                                                            style={[styles.discountInput, { minWidth: 32, borderWidth: 1, borderColor: '#eee', borderRadius: 6, textAlign: 'center', backgroundColor: '#fff', fontSize: 16, height: 32, lineHeight: 28 }]}
+                                                            keyboardType="numeric"
+                                                            value={discount.toString()}
+                                                            onChangeText={text => {
+                                                                let val = parseInt(text.replace(/[^0-9]/g, ''), 10);
+                                                                if (isNaN(val)) val = 0;
+                                                                if (val > 100) val = 100;
+                                                                setDiscount(val);
+                                                            }}
+                                                            maxLength={3}
+                                                            returnKeyType="done"
+                                                        />
+                                                        <Text style={{ fontSize: 16, color: '#666' }}>%</Text>
+                                                    </View>
                                                     <TouchableOpacity
                                                         style={styles.controlButton}
                                                         onPress={() => setDiscount(d => Math.min(100, d + 1))}
                                                         disabled={discount >= 100}
                                                     >
-                                                        <Ionicons name="add" size={16} color="#fff" />
+                                                        <Ionicons name="add" size={20} color="#fff" />
                                                     </TouchableOpacity>
                                                 </View>
                                             </View>
@@ -717,9 +719,9 @@ const styles = StyleSheet.create({
     },
     controlButton: {
         backgroundColor: '#2196F3',
-        borderRadius: 6,
-        width: 28,
-        height: 28,
+        borderRadius: 8,
+        width: 32,
+        height: 32,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -780,13 +782,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 0,
     },
     totalLabel: {
-        fontSize: 14,
+        fontSize: 15,
         color: '#666',
         marginBottom: 4,
-        fontWeight: '500',
+        marginHorizontal: 'auto'
     },
     subtotalAmount: {
         fontSize: 20,
@@ -897,9 +898,7 @@ const styles = StyleSheet.create({
     discountRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        marginBottom: 8,
-        gap: 0,
+        marginVertical: 8,
     },
     discountInput: {
         minWidth: 40,

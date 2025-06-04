@@ -3,6 +3,7 @@ import { Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, Platform, A
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '@/lib/supabase';
+import { Constants } from '@/constants/AppConstants';
 
 interface EditProfileModalProps {
   userId?: string;
@@ -46,7 +47,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 1,
       legacy: true, // Use legacy behavior for better compatibility
     });
 
@@ -54,8 +55,11 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
       // Compress the image before preview/upload
       const compressed = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
-        [{ resize: { width: 360 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: Constants.imageCompression.resizeWidth } }],
+        {
+          compress: Constants.imageCompression.quality,
+          format: ImageManipulator.SaveFormat.JPEG
+        }
       );
       setLogoPreview(compressed.uri);
       setLogo(compressed.uri);

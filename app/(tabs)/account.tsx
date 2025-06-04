@@ -226,7 +226,7 @@ const AccountScreen: React.FC = () => {
                 </View>
             )}
             <StatusBar barStyle="dark-content" />
-            <Text style={styles.title}> Account Details </Text>
+            {/* <Text style={styles.title}> Account Details </Text> */}
             <View style={styles.profileImageContainer}>
                 {user?.businessLogo ? (
                     <View>
@@ -317,14 +317,15 @@ const styles = StyleSheet.create({
     },
     profileImageContainer: {
         alignItems: 'center',
-        marginBottom: 32,
+        marginBottom: 20,
+        paddingVertical: 34
     },
     profileImage: {
         width: 120,
         height: 120,
         borderRadius: 60,
         borderWidth: 2,
-        borderColor: '#e5e7eb',
+        borderColor: 'rgb(100, 100, 100)',
     },
     infoContainer: {
         flexDirection: 'row',

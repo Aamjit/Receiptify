@@ -187,12 +187,8 @@ export function generateHTMLForReceipt(receiptData: ReceiptData): string {
                             <td style="text-align:right;">${discount}%</td>
                         </tr>
                         <tr class="total-row">
-                            <td colspan="3" style="text-align:right;">Total After Discount</td>
+                            <td colspan="3" style="text-align:right;">Total Amount</td>
                             <td style="text-align:right;">₹${(totalAfterDiscount ?? total).toFixed(2)}</td>
-                        </tr>
-                        <tr class="total-row">
-                            <td colspan="3" style="text-align:right;">Grand Total</td>
-                            <td style="text-align:right;">₹${total.toFixed(2)}</td>
                         </tr>
                     </tfoot>
                 </table>
