@@ -22,7 +22,7 @@ export const Colors = {
     // background: '#fff',
     tint: tintColorDark,
     icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    tabIconDefault: 'rgb(155,161,166)',
     tabIconSelected: tintColorDark,
   },
 };

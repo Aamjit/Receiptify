@@ -7,10 +7,13 @@ import { supabase } from '@/lib/supabase';
 import { ImagePickerAsset } from 'expo-image-picker'
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, StatusBar, ToastAndroid } from 'react-native';
 import CustomAlertModal from '@/components/CustomAlertModal';
+import { useAppContext } from '@/hooks/useApp';
 
 const AccountSetupScreen = () => {
+    const { User, setUser } = useAppContext()
     const [formData, setFormData] = useState({
         name: '',
+        email: User?.email,
         address: '',
         phoneNumber: '',
         gstin: '',
@@ -54,14 +57,14 @@ const AccountSetupScreen = () => {
             setCustomAlert({ visible: true, title: 'Validation Error', message: 'Phone number must be at least 10 digits.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return false;
         }
-        // if (formData.gstin.length !== 15) {
-        //     setCustomAlert({ visible: true, title: 'Validation Error', message: 'GSTIN must be exactly 15 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
-        //     return false;
-        // }
-        // if (formData.panNumber.length !== 10) {
-        //     setCustomAlert({ visible: true, title: 'Validation Error', message: 'PAN Number must be exactly 10 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
-        //     return false;
-        // }
+        if (formData.gstin && formData.gstin.length !== 15) {
+            setCustomAlert({ visible: true, title: 'Validation Error', message: 'GSTIN must be exactly 15 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+            return false;
+        }
+        if (formData.panNumber && formData.panNumber.length !== 10) {
+            setCustomAlert({ visible: true, title: 'Validation Error', message: 'PAN Number must be exactly 10 characters.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
+            return false;
+        }
         return true;
     }
 
@@ -117,7 +120,7 @@ const AccountSetupScreen = () => {
                 return;
             }
             const userDocRef = querySnapshot.docs[0].ref;
-            await updateDoc(userDocRef, {
+            const updatedDoc = {
                 name: formData.name || '',
                 phoneNumber: formData.phoneNumber || '',
                 address: formData.address || '',
@@ -128,8 +131,10 @@ const AccountSetupScreen = () => {
                 otherInfo: formData.otherInfo || '',
                 businessLogo: imageUrl?.data.publicUrl || '',
                 new: false, // Mark the account as set up
-            })
-                .then(() => {
+            }
+            await updateDoc(userDocRef, updatedDoc)
+                .then((res) => {
+                    setUser({ ...User, ...updatedDoc })
                     // console.log("User document updated with profile picture URL");
                     ToastAndroid.show('Account details saved successfully.', ToastAndroid.LONG);
                     router.replace({ pathname: '/home', params: { reset: 'true' } });
@@ -173,13 +178,24 @@ const AccountSetupScreen = () => {
             />
 
             <TextInput
+                style={[styles.input, { color: '#4da2ff' }]}
+                placeholder="Email"
+                placeholderTextColor="#999999"
+                value={'' + formData.email}
+                editable={false}
+                // onChangeText={value => handleChange('name', value)}
+                autoCapitalize="words"
+            />
+
+            <TextInput
                 style={styles.input}
                 placeholder="Address"
                 placeholderTextColor="#999999"
                 value={formData.address}
                 onChangeText={value => handleChange('address', value)}
+                autoCapitalize="words"
                 multiline
-                numberOfLines={3}
+                numberOfLines={4}
             />
 
             <TextInput
@@ -230,7 +246,7 @@ const AccountSetupScreen = () => {
             />
 
             <Avatar
-                size={{ width: 400, height: 150 }}
+                size={{ width: 300, height: 300 }}
                 url={accountImage?.uri ?? ''}
                 onImageSelect={(image) => {
                     setAccountImage(image)
@@ -248,7 +264,7 @@ const AccountSetupScreen = () => {
             />
 
             <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-                <Text style={styles.buttonText}>Create Account</Text>
+                <Text style={styles.buttonText}>Save Details</Text>
             </TouchableOpacity>
 
             <CustomAlertModal

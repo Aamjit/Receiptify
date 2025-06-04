@@ -1,14 +1,16 @@
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
+import { useAppContext } from '@/hooks/useApp';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Image, Platform, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { User } = useAppContext()
   const isDark = colorScheme === 'dark';
   const tabBarHeight = Platform.OS === 'android' ? 70 : 64;
 
@@ -16,6 +18,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tabIconSelected,
+        tabBarInactiveTintColor: Colors[colorScheme ?? 'light'].tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: () => (
@@ -24,7 +27,7 @@ export default function TabLayout() {
             style={[
               StyleSheet.absoluteFillObject,
               styles.tabBarBackground,
-              { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)' }
+              { backgroundColor: isDark ? 'rgba(43, 43, 43, 0.5)' : 'rgba(255,255,255,0.7)' }
             ]}
           />
         ),
@@ -76,10 +79,10 @@ export default function TabLayout() {
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
-              size={28}
+              size={30}
               name={"house.fill"}
               color={color}
-              style={focused ? styles.activeIcon : styles.icon}
+              style={[focused ? styles.activeIcon : styles.icon]}
             />
           ),
         }}
@@ -88,13 +91,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="account"
         options={{
-          title: 'Account',
+          title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <IconSymbol
-              size={28}
-              name={"person.crop.circle"}
-              color={color}
-              style={focused ? styles.activeIcon : styles.icon}
+            <Image
+              source={{ uri: User?.businessLogo }}
+              // size={28}
+              width={30}
+              height={30}
+              // name={"person.crop.circle"}
+              // color={color}
+              style={[focused ? styles.activeIcon : styles.icon, { borderRadius: 60, borderWidth: 1, borderColor: '#555' }]}
             />
           ),
         }}
@@ -111,7 +117,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
-    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowColor: 'rgba(53, 53, 53, 0.1)',
     shadowRadius: 20,
     shadowOpacity: 0.1,
     shadowOffset: {

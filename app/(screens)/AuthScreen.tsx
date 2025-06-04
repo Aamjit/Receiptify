@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, GestureResponderEvent, Image, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CustomAlertModal from '@/components/CustomAlertModal'; // Adjust the import based on your project structure
+import { useAppContext } from '@/hooks/useApp';
 
 const AuthScreen = () => {
     const [email, setEmail] = useState<string>('');
@@ -17,6 +18,7 @@ const AuthScreen = () => {
     const [confirmPasswordVisible, setConfirmPasswordVisible] = useState<boolean>(false);
     const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const router = useRouter();
+    const { setUser, User } = useAppContext()
 
     useEffect(() => {
         // Configure Google Signin
@@ -25,10 +27,8 @@ const AuthScreen = () => {
         });
     }, []);
 
-
     // Handle user state changes
     function handleAuthStateChanged(user: any) {
-
     }
 
     useEffect(() => {
@@ -36,7 +36,7 @@ const AuthScreen = () => {
         return subscriber; // unsubscribe on unmount
     }, []);
 
-    const checkIfUserNew = async (userId: string) => {
+    const fetchUserData = async (userId: string) => {
         const db = getFirestore();
         const usersCollection = collection(db, 'Users');
         const q = query(usersCollection, where('userId', '==', userId));
@@ -44,9 +44,10 @@ const AuthScreen = () => {
         if (!querySnapshot.empty) {
             const userDoc = querySnapshot.docs[0];
             const userData = userDoc.data();
-            return userData.new; // Return the 'new' field value
+            setUser(userData)
+            return userData;
         }
-        return false; // User not found or 'new' field not set
+        return null;
     }
 
     const handleSignInOrSignUp = async (e: any) => {
@@ -67,10 +68,12 @@ const AuthScreen = () => {
             setCustomAlert({ visible: true, title: 'Error', message: 'Passwords do not match. Please retype your password.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
             return;
         }
+
         try {
             if (!isSignUp) {
                 setLoading({ state: true, text: "Signing you in" })
                 const singInPro = await signInWithEmailAndPassword(getAuth(), email, password);
+                const fetchUserPro = await fetchUserData(singInPro.user.uid);
                 if (singInPro) {
                     // Check if email is verified
                     if (!singInPro.user.emailVerified) {
@@ -94,17 +97,23 @@ const AuthScreen = () => {
                         setLoading({ state: false, text: "" });
                         return;
                     }
-                    if (Platform.OS === 'android') {
+
+                    if (Platform.OS === 'android' && !fetchUserPro?.new) {
                         ToastAndroid.show('Signed in successfully!', ToastAndroid.SHORT);
                     } else {
                         // Optionally add iOS toast/snackbar here
                     }
+                    // setLoading({ state: true, text: "Redirecting..." });
 
-                    const isUserNew = await checkIfUserNew(singInPro.user.uid);
-                    isUserNew ? router.replace({ pathname: '/AccountSetupScreen' }) : router.replace({ pathname: '/home', params: { reset: 'true' } });
+                    if (fetchUserPro) {
+                        setTimeout(() => {
+                            fetchUserPro?.new ? router.navigate({ pathname: '/AccountSetupScreen' }) : router.replace({ pathname: '/home', params: { reset: 'true' } });
+                        }, 1000);
+                    }
                 } else {
                     ToastAndroid.show('Unable to signin! Please try again later.', ToastAndroid.SHORT);
                 }
+                return;
             } else {
                 setLoading({ state: true, text: "Creating user account..." });
                 const methods = await fetchSignInMethodsForEmail(getAuth(), email);
@@ -133,7 +142,7 @@ const AuthScreen = () => {
                     // ...existing code for Firestore user creation...
                     const db = getFirestore();
                     const usersCollection = collection(db, 'Users');
-                    await setDoc(doc(usersCollection), {
+                    const userData = {
                         userId: authResult.uid,
                         name: '',
                         email: authResult.email || '',
@@ -147,7 +156,8 @@ const AuthScreen = () => {
                         otherInfo: '',
                         createdAt: new Date(),
                         new: true // Add a new field to indicate new user
-                    });
+                    }
+                    await setDoc(doc(usersCollection), userData);
                     if (Platform.OS === 'android') {
                         ToastAndroid.show('A verification email has been sent to your email', ToastAndroid.LONG);
                     }
@@ -159,30 +169,15 @@ const AuthScreen = () => {
                     });
                     await getAuth().signOut();
                     // Optionally redirect to sign in screen
-                    router.replace({ pathname: '/(screens)/AuthScreen', params: { reset: 'true' } });
+                    setIsSignUp(false)
+                    setConfirmPassword('')
+                    setPassword('')
+                    // router.replace({ pathname: '/(screens)/AuthScreen', params: { reset: 'true' } });
                 } catch (signUpError: any) {
                     setCustomAlert({ visible: true, title: 'Account Error', message: signUpError.message || 'Failed to sign in or sign up.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
                 } finally {
                     setLoading({ state: false, text: "" });
                 }
-
-                // Sign up flow with confirmation prompt
-                // setCustomAlert({
-                //     visible: true,
-                //     title: 'Account Create',
-                //     message: 'Confirm to create a new account?\n\nMake sure you remember your password.',
-                //     actions: [
-                //         { text: 'Back', onPress: () => setCustomAlert({ ...customAlert, visible: false }) },
-                //         {
-                //             text: 'Yes',
-                //             onPress: async () => {
-                //                 setCustomAlert({ ...customAlert, visible: false });
-                //                 // setLoading({ state: true, text: "Creating user account..." });
-
-                //             }
-                //         }
-                //     ]
-                // });
                 return;
             }
         } catch (error: any) {
