@@ -16,3 +16,8 @@ node_modules/
 .expo-shared/
 # Expo Doctor recommendations
 /android
+google-services-old*.*
+google-services*.*b6
+google-services.json
+/assets/gif/
+build-log.txt

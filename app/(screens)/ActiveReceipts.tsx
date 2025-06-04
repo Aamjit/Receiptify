@@ -20,6 +20,8 @@ type ActiveReceipt = {
     receiptNumber: string
     date: string
     total: number
+    totalAfterDiscount?: number
+    discount?: number // Add discount field
     items: ReceiptItem[]
     timestamp?: number | null
 }
@@ -41,6 +43,7 @@ const ActiveReceipts = () => {
 
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [pendingDelete, setPendingDelete] = useState<{ id: string; receiptNumber: string } | null>(null);
+    const [discount, setDiscount] = useState<number>(0); // Discount in percentage for editing
 
     const router = useRouter()
 
@@ -62,6 +65,8 @@ const ActiveReceipts = () => {
                     receiptNumber: data.receiptNumber,
                     date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : '',
                     total: data.total,
+                    totalAfterDiscount: data.totalAfterDiscount,
+                    discount: data.discount || 0, // Default to 0 if not set
                     items: data.items,
                     timestamp: data.timestamp,
                 })
@@ -103,6 +108,7 @@ const ActiveReceipts = () => {
             if (!querySnapshot.empty) {
                 const userDoc = querySnapshot.docs[0]
                 const userData = userDoc.data()
+
                 const inventoryArray = userData.inventory || []
                 // Map inventory array to expected format with id, name, price
                 const itemsData = inventoryArray.map((item: any, index: number) => ({
@@ -125,6 +131,7 @@ const ActiveReceipts = () => {
     const onReceiptPress = (receipt: ActiveReceipt) => {
         setSelectedReceipt(receipt)
         setItems(receipt.items)
+        setDiscount(typeof receipt.discount === 'number' ? receipt.discount : 0)
         setModalVisible(true)
     }
 
@@ -145,6 +152,7 @@ const ActiveReceipts = () => {
             quantity: 1,
             price,
         }
+        ToastAndroid.showWithGravity(`${name} added to receipt`, ToastAndroid.SHORT, ToastAndroid.BOTTOM);
         setItems(prevItems => [...prevItems, newItem])
     }
 
@@ -152,24 +160,33 @@ const ActiveReceipts = () => {
         setItems(prevItems => prevItems.filter(item => item.id !== itemId))
     }
 
+    const calculateSubtotal = () => {
+        return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    };
+
     const calculateTotal = () => {
-        return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+        const subtotal = calculateSubtotal();
+        const discountedTotal = subtotal - (subtotal * (discount / 100));
+        return discountedTotal;
     }
 
     const saveChanges = async () => {
         if (selectedReceipt) {
-            const db = getFirestore()
-            const receiptRef = doc(db, 'Receipts', selectedReceipt.id)
-            const updatedTotal = calculateTotal()
+            const db = getFirestore();
+            const receiptRef = doc(db, 'Receipts', selectedReceipt.id);
+            const updatedSubtotal = calculateSubtotal();
+            const updatedTotal = calculateTotal();
             try {
                 await updateDoc(receiptRef, {
                     items: items,
-                    total: updatedTotal,
-                })
+                    total: updatedSubtotal, // Save subtotal (without discount)
+                    discount: discount,
+                    totalAfterDiscount: updatedTotal, // Save total after discount
+                });
                 // Update local state to reflect changes
                 setActiveReceipts(prevReceipts =>
                     prevReceipts.map(r =>
-                        r.id === selectedReceipt.id ? { ...r, items: items, total: updatedTotal } : r
+                        r.id === selectedReceipt.id ? { ...r, items: items, total: updatedSubtotal, discount, totalAfterDiscount: updatedTotal } : r
                     )
                 )
                 setModalVisible(false)
@@ -194,6 +211,7 @@ const ActiveReceipts = () => {
     };
 
     const finalizeReceipt = async () => {
+        saveChanges();
         if (selectedReceipt) {
             const db = getFirestore()
             const receiptRef = doc(db, 'Receipts', selectedReceipt.id)
@@ -256,17 +274,29 @@ const ActiveReceipts = () => {
 
     const handleAddItem = () => {
         if (!newItemName.trim() || !newItemPrice.trim()) {
-            setAlert({ visible: true, title: 'Error', message: 'Please enter both item name and price.', actions: [{ text: 'OK' }] });
+            setAlert({
+                visible: true, title: 'Error', message: 'Please enter both item name and price.', actions: [{
+                    text: 'OK', onPress: () => {
+                        setAlert({ ...alert, visible: false })
+                    }
+                }]
+            });
             return
         }
         const price = parseFloat(newItemPrice)
         if (isNaN(price) || price <= 0) {
-            setAlert({ visible: true, title: 'Error', message: 'Please enter a valid positive price.', actions: [{ text: 'OK' }] });
+            setAlert({
+                visible: true, title: 'Error', message: 'Please enter a valid positive price.', actions: [{
+                    text: 'OK', onPress: () => {
+                        setAlert({ ...alert, visible: false })
+                    }
+                }]
+            });
             return
         }
         addItem(newItemName.trim(), price)
-        setNewItemName('')
-        setNewItemPrice('')
+        // setNewItemName('')
+        // setNewItemPrice('')
     }
 
     return (
@@ -409,8 +439,51 @@ const ActiveReceipts = () => {
                                         </View>
 
                                         <View style={styles.totalSection}>
-                                            <Text style={styles.totalLabel}>Total Amount</Text>
-                                            <Text style={styles.totalAmount}>₹{calculateTotal().toFixed(2)}</Text>
+                                            <View>
+                                                <Text style={styles.totalLabel}>Discount (%)</Text>
+                                                <View style={styles.discountRow}>
+                                                    <TouchableOpacity
+                                                        style={[styles.controlButton, discount <= 0 && styles.controlButtonDisabled]}
+                                                        onPress={() => setDiscount(d => Math.max(0, d - 1))}
+                                                        disabled={discount <= 0}
+                                                    >
+                                                        <Ionicons name="remove" size={20} color="#fff" />
+                                                    </TouchableOpacity>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 4, gap: 2 }}>
+                                                        <TextInput
+                                                            style={[styles.discountInput, { minWidth: 32, borderWidth: 1, borderColor: '#eee', borderRadius: 6, textAlign: 'center', backgroundColor: '#fff', fontSize: 16, height: 32, lineHeight: 28 }]}
+                                                            keyboardType="numeric"
+                                                            value={discount.toString()}
+                                                            onChangeText={text => {
+                                                                let val = parseInt(text.replace(/[^0-9]/g, ''), 10);
+                                                                if (isNaN(val)) val = 0;
+                                                                if (val > 100) val = 100;
+                                                                setDiscount(val);
+                                                            }}
+                                                            maxLength={3}
+                                                            returnKeyType="done"
+                                                        />
+                                                        <Text style={{ fontSize: 16, color: '#666' }}>%</Text>
+                                                    </View>
+                                                    <TouchableOpacity
+                                                        style={styles.controlButton}
+                                                        onPress={() => setDiscount(d => Math.min(100, d + 1))}
+                                                        disabled={discount >= 100}
+                                                    >
+                                                        <Ionicons name="add" size={20} color="#fff" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                            <View style={{ alignItems: 'flex-end', flex: 1 }}>
+                                                <View style={{ marginBottom: 6 }}>
+                                                    <Text style={styles.totalLabel}>Subtotal</Text>
+                                                    <Text style={styles.subtotalAmount}>₹{calculateSubtotal().toFixed(2)}</Text>
+                                                </View>
+                                                <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 8, marginTop: 2 }}>
+                                                    <Text style={styles.totalLabel}>Total Amount</Text>
+                                                    <Text style={styles.finalTotalAmount}>₹{calculateTotal().toFixed(2)}</Text>
+                                                </View>
+                                            </View>
                                         </View>
                                     </View>
                                 </ScrollView>
@@ -606,7 +679,7 @@ const styles = StyleSheet.create({
         color: '#1a1a1a',
     },
     itemsSection: {
-        marginBottom: 24,
+        marginBottom: 12,
     },
     sectionTitle: {
         fontSize: 16,
@@ -646,14 +719,17 @@ const styles = StyleSheet.create({
     },
     controlButton: {
         backgroundColor: '#2196F3',
-        borderRadius: 6,
-        width: 28,
-        height: 28,
+        borderRadius: 8,
+        width: 32,
+        height: 32,
         justifyContent: 'center',
         alignItems: 'center',
     },
     controlButtonWarning: {
         backgroundColor: '#FF5252',
+    },
+    controlButtonDisabled: {
+        backgroundColor: '#ccc',
     },
     quantityInput: {
         width: 40,
@@ -703,16 +779,36 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f9fa',
         borderRadius: 12,
         padding: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     totalLabel: {
-        fontSize: 14,
+        fontSize: 15,
         color: '#666',
         marginBottom: 4,
+        marginHorizontal: 'auto'
     },
-    totalAmount: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#1a1a1a',
+    subtotalAmount: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#334155',
+    },
+    discountLabel: {
+        fontSize: 13,
+        color: '#64748b',
+        marginBottom: 2,
+    },
+    discountAmount: {
+        fontSize: 18,
+        color: '#f59e42',
+        fontWeight: '600',
+    },
+    finalTotalAmount: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#0ea5e9',
+        marginTop: 2,
     },
     modalFooter: {
         flexDirection: 'row',
@@ -798,6 +894,27 @@ const styles = StyleSheet.create({
     dropdownItemText: {
         fontSize: 15,
         color: '#1a1a1a',
+    },
+    discountRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 8,
+    },
+    discountInput: {
+        minWidth: 40,
+        maxWidth: 60,
+        height: 32,
+        // marginHorizontal: 8,
+        marginLeft: 8,
+        borderWidth: 1,
+        borderColor: '#eee',
+        borderRadius: 6,
+        textAlign: 'center',
+        fontSize: 16,
+        backgroundColor: '#fff',
+        paddingVertical: 0,
+        paddingHorizontal: 0,
+        lineHeight: 28,
     },
 });
 

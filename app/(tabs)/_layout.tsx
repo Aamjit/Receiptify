@@ -1,30 +1,33 @@
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
+import { useAppContext } from '@/hooks/useApp';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Image, Platform, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { User } = useAppContext()
   const isDark = colorScheme === 'dark';
+  const tabBarHeight = Platform.OS === 'android' ? 70 : 64;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tabIconSelected,
+        tabBarInactiveTintColor: Colors[colorScheme ?? 'light'].tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: () => (
           <BlurView
             tint={isDark ? 'dark' : 'light'}
-            intensity={isDark ? 40 : 80}
             style={[
               StyleSheet.absoluteFillObject,
-              // styles.tabBarBackground,
-              { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)' }
+              styles.tabBarBackground,
+              { backgroundColor: isDark ? 'rgba(43, 43, 43, 0.5)' : 'rgba(255,255,255,0.7)' }
             ]}
           />
         ),
@@ -37,23 +40,29 @@ export default function TabLayout() {
           },
         },
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? 88 : 64,
-          paddingTop: 4,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+          height: tabBarHeight,
           elevation: 0,
+          backgroundColor: 'transparent',
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          borderTopColor: 'transparent',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          shadowColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.1)',
+          shadowRadius: 20,
+          shadowOpacity: 0.1,
           borderTopWidth: 0,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          shadowColor: '#000',
           shadowOffset: {
-            width: 0,
+            width: 20,
             height: -4,
           },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
         },
         tabBarItemStyle: {
-          height: Platform.OS === 'ios' ? 50 : 56,
+          paddingVertical: 0,
+          paddingHorizontal: 0,
+          width: 'auto',
         },
         tabBarIconStyle: {
           marginTop: 4,
@@ -61,8 +70,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
-          marginTop: 4,
-          marginBottom: Platform.OS === 'ios' ? 0 : 8,
+          insetBlock: 2,
         },
       }}>
       <Tabs.Screen
@@ -71,10 +79,10 @@ export default function TabLayout() {
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
-              size={28}
+              size={30}
               name={"house.fill"}
               color={color}
-              style={focused ? styles.activeIcon : styles.icon}
+              style={[focused ? styles.activeIcon : styles.icon]}
             />
           ),
         }}
@@ -83,13 +91,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="account"
         options={{
-          title: 'Account',
+          title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <IconSymbol
-              size={28}
-              name={"person.crop.circle"}
-              color={color}
-              style={focused ? styles.activeIcon : styles.icon}
+            <Image
+              source={{ uri: User?.businessLogo }}
+              // size={28}
+              width={30}
+              height={30}
+              // name={"person.crop.circle"}
+              // color={color}
+              style={[focused ? styles.activeIcon : styles.icon, { borderRadius: 60, borderWidth: 1, borderColor: '#555' }]}
             />
           ),
         }}
@@ -100,9 +111,30 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBarBackground: {
-    // overflow: 'hidden',
-    // borderTopLeftRadius: 24,
-    // borderTopRightRadius: 24,
+    padding: 0,
+    margin: 0,
+    backgroundColor: 'transparent',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    shadowColor: 'rgba(53, 53, 53, 0.1)',
+    shadowRadius: 20,
+    shadowOpacity: 0.1,
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    elevation: 0,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000, // Ensure it appears above other content
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   icon: {
     opacity: 0.8,
@@ -110,6 +142,6 @@ const styles = StyleSheet.create({
   },
   activeIcon: {
     opacity: 1,
-    transform: [{ scale: 1.1 }],
+    transform: [{ scale: 1.2 }],
   },
 });

@@ -4,9 +4,10 @@ import { collection, doc, FirebaseFirestoreTypes, getDocs, getFirestore, query, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert, ToastAndroid } from 'react-native';
 import CustomAlertModal from '@/components/CustomAlertModal';
 import EditProfileModal from '../components/EditProfileModal';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> = ({ visible, onClose }) => {
     const [currentPassword, setCurrentPassword] = useState('');
@@ -102,6 +103,7 @@ const AccountScreen: React.FC = () => {
     const [imageLoading, setImageLoading] = useState(false);
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [loggingOut, setLoggingOut] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -113,8 +115,9 @@ const AccountScreen: React.FC = () => {
                 })
             } catch (error) {
                 console.error('Error checking email existence:', error);
+            } finally {
+                setLoading(false);
             }
-
         };
         fetchUser();
     }, [])
@@ -172,15 +175,47 @@ const AccountScreen: React.FC = () => {
                     onPress: async () => {
                         setAlert({ ...alert, visible: false });
                         setLoggingOut(true);
-                        setUser(null);
-                        await signOut(getAuth());
-                        router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
-                        setLoggingOut(false);
+
+                        // Configure Google Signin
+                        GoogleSignin.configure({
+                            webClientId: process.env.EXPO_PUBLIC_CLIENT_ID // Replace with your actual web client ID from 
+                        });
+
+                        if (GoogleSignin.getCurrentUser()) {
+                            try {
+                                await GoogleSignin.signOut();
+                            } catch (error) {
+                                console.error('Error signing out from Google:', error);
+                                ToastAndroid.show('Error signing out from Google', ToastAndroid.SHORT);
+                                setLoggingOut(false);
+                                return;
+                            }
+                        }
+                        // console.log("Firebase", getAuth().currentUser);
+                        if (getAuth().currentUser) {
+                            await signOut(getAuth());
+                        }
+
+                        setTimeout(() => {
+                            ToastAndroid.show('Logged out successfully!', ToastAndroid.SHORT);
+                            setUser(null);
+                            setLoggingOut(false);
+                            router.replace({ pathname: '/AuthScreen', params: { reset: 'true' } });
+                        }, 2000);
                     }
                 }
             ]
         });
     };
+
+    if (loading) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text style={{ marginTop: 12, color: '#3b82f6', fontWeight: '600', fontSize: 16 }}>Loading account...</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -191,7 +226,7 @@ const AccountScreen: React.FC = () => {
                 </View>
             )}
             <StatusBar barStyle="dark-content" />
-            <Text style={styles.title}>User Account</Text>
+            {/* <Text style={styles.title}> Account Details </Text> */}
             <View style={styles.profileImageContainer}>
                 {user?.businessLogo ? (
                     <View>
@@ -282,14 +317,15 @@ const styles = StyleSheet.create({
     },
     profileImageContainer: {
         alignItems: 'center',
-        marginBottom: 32,
+        marginBottom: 20,
+        paddingVertical: 34
     },
     profileImage: {
         width: 120,
         height: 120,
         borderRadius: 60,
         borderWidth: 2,
-        borderColor: '#e5e7eb',
+        borderColor: 'rgb(100, 100, 100)',
     },
     infoContainer: {
         flexDirection: 'row',

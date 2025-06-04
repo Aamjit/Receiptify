@@ -10,6 +10,7 @@
       "env": {
         "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON"
       },
+      "autoIncrement": true
     },
     "preview": {
       "android": {
@@ -18,6 +19,7 @@
         "env": {
           "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON"
         },
+        "autoIncrement": true
       }
     },
     "production": {
@@ -27,7 +29,7 @@
         "env": {
           "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON"
         },
-        "autoIncrement": true,
+        "autoIncrement": true
       }
     }
   },

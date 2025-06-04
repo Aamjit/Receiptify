@@ -29,6 +29,8 @@ const ManageInventory = () => {
     const [isFormVisible, setIsFormVisible] = useState(true);
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
+    const [showCategoryModal, setShowCategoryModal] = useState(false);
+    const [categoryQuery, setCategoryQuery] = useState('');
     const animatedHeight = useRef(new Animated.Value(1)).current;
     const lastScrollY = useRef(0);
     const scrollThreshold = 10; // minimum scroll distance to trigger collapse
@@ -55,7 +57,9 @@ const ManageInventory = () => {
                 const userData = userQuery.docs[0].data();
                 setInventory(userData.inventory || []);
             }
-            setLoading(false);
+            setTimeout(() => {
+                setLoading(false);
+            }, 500); // Simulate loading delay
         } catch (error) {
             console.error('Error fetching inventory:', error);
             setAlert({ visible: true, title: 'Error', message: 'Failed to fetch inventory', actions: [{ text: 'OK' }] });
@@ -103,6 +107,17 @@ const ManageInventory = () => {
                 visible: true,
                 title: 'Error',
                 message: 'Please fill all fields',
+                actions: [{ text: 'OK', onPress: () => setAlert(a => ({ ...a, visible: false })) }]
+            });
+            return;
+        }
+
+        // Check for duplicate item name (case-insensitive)
+        if (inventory.some(item => item.name.trim().toLowerCase() === name.trim().toLowerCase())) {
+            setAlert({
+                visible: true,
+                title: 'Duplicate Item',
+                message: 'An item with this name already exists in your inventory.',
                 actions: [{ text: 'OK', onPress: () => setAlert(a => ({ ...a, visible: false })) }]
             });
             return;
@@ -192,13 +207,13 @@ const ManageInventory = () => {
         Animated.spring(animatedHeight, {
             toValue,
             useNativeDriver: false,
-            bounciness: 2
+            bounciness: 1
         }).start();
         // Scroll to top when expanding the form
         if (!isFormVisible && scrollViewRef.current) {
             setTimeout(() => {
                 scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-            }, 250); // Wait for animation
+            }, 100); // Wait for animation
         }
     };
 
@@ -240,17 +255,32 @@ const ManageInventory = () => {
         </View>
     );
 
+    // if (loading) {
+    //     return (
+    //         <View style={styles.container}>
+    //             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    //                 <Ionicons name="cube-outline" size={64} color="#94a3b8" />
+    //                 <Text style={styles.loadingText}>Loading inventory...</Text>
+    //             </View>
+    //         </View>
+    //     );
+    // }
+
+    // Extract unique categories for autocomplete
+    const categoryOptions = Array.from(new Set(inventory.map(item => item.category).filter(Boolean)));
+
     return (
         <View style={styles.container}>
             {/* <View style={styles.header}>
                 <Text style={styles.headerText}>Manage your inventory items</Text>
             </View> */}
 
+
             <ScrollView
                 ref={scrollViewRef}
                 style={styles.scrollContainer}
                 onScroll={(event) => handleScroll(event)}
-                scrollEventThrottle={16}
+                scrollEventThrottle={17}
             >
                 <Animated.View style={[
                     styles.formContainer,
@@ -262,7 +292,7 @@ const ManageInventory = () => {
                         opacity: animatedHeight,
                         marginBottom: animatedHeight.interpolate({
                             inputRange: [0, 1],
-                            outputRange: [0, 16]
+                            outputRange: [0, 0]
                         })
                     }
                 ]}>
@@ -298,13 +328,19 @@ const ManageInventory = () => {
                             keyboardType="numeric"
                             style={styles.input}
                         />
-                        <TextInput
-                            placeholder="Category (e.g., Electronics, Clothing)"
-                            placeholderTextColor="#999"
-                            value={category}
-                            onChangeText={setCategory}
-                            style={styles.input}
-                        />
+                        {/* Category Modal Dropdown */}
+                        <View style={styles.pickerContainer}>
+                            <Text style={styles.pickerLabel}>Category</Text>
+                            <TouchableOpacity
+                                style={styles.pickerButton}
+                                onPress={() => {
+                                    setCategoryQuery('');
+                                    setShowCategoryModal(true);
+                                }}
+                            >
+                                <Text style={styles.pickerButtonText}>{category ? category : 'Select or Add Category'}</Text>
+                            </TouchableOpacity>
+                        </View>
                         <View style={styles.pickerContainer}>
                             <Text style={styles.pickerLabel}>Availability</Text>
                             <TouchableOpacity
@@ -335,20 +371,27 @@ const ManageInventory = () => {
                     </View>
                 </Animated.View>
 
-                {inventory.length === 0 ? (
-                    <View style={[styles.emptyStateContainer, { flex: 1, minHeight: 400 }]}>
-                        <Ionicons name="cube-outline" size={64} color="#94a3b8" />
-                        <Text style={styles.emptyStateTitle}>No Items Yet</Text>
-                        <Text style={styles.emptyStateMessage}>
-                            Use the form above to add items to your inventory.{'\n'}
-                            This will help you manage your stock efficiently.
-                        </Text>
+                {loading ?
+                    <View style={[styles.container, { minHeight: 400 }]}>
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <Ionicons name="cube-outline" size={64} color="#94a3b8" />
+                            <Text style={styles.loadingText}>Loading inventory...</Text>
+                        </View>
                     </View>
-                ) : (
-                    <View style={styles.listContainer}>
-                        {inventory.map((item) => renderItem({ item }))}
-                    </View>
-                )}
+                    : inventory.length === 0 ? (
+                        <View style={[styles.emptyStateContainer, { flex: 1, minHeight: 400 }]}>
+                            <Ionicons name="cube-outline" size={64} color="#94a3b8" />
+                            <Text style={styles.emptyStateTitle}>No Items Yet</Text>
+                            <Text style={styles.emptyStateMessage}>
+                                Use the form above to add items to your inventory.{'\n'}
+                                This will help you manage your stock efficiently.
+                            </Text>
+                        </View>
+                    ) : (
+                        <View style={styles.listContainer}>
+                            {inventory.map((item) => renderItem({ item }))}
+                        </View>
+                    )}
             </ScrollView>
 
             {!isFormVisible && (
@@ -400,6 +443,71 @@ const ManageInventory = () => {
                             </TouchableOpacity>
                         ))}
                     </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* // Category Modal */}
+            <Modal
+                visible={showCategoryModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowCategoryModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowCategoryModal(false)}
+                >
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        style={[styles.modalContent, { paddingBottom: 10 }]}
+                        onPress={() => { }}
+                    >
+                        <Text style={styles.modalTitle}>Select or Add Category</Text>
+                        <TextInput
+                            placeholder="Type to filter or add..."
+                            value={categoryQuery}
+                            placeholderTextColor={'#999'}
+                            onChangeText={setCategoryQuery}
+                            style={[styles.input, { marginBottom: 8 }]}
+                            autoFocus
+                        />
+                        <ScrollView style={{ maxHeight: 280, marginBottom: 8 }}>
+                            {categoryOptions.filter(option =>
+                                option.toLowerCase().includes(categoryQuery.toLowerCase())
+                            ).map(option => (
+                                <TouchableOpacity
+                                    key={option}
+                                    style={[
+                                        styles.modalOption,
+                                        category === option && styles.modalOptionSelected
+                                    ]}
+                                    onPress={() => {
+                                        setCategory(option);
+                                        setCategoryQuery(option);
+                                        setShowCategoryModal(false);
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.modalOptionText,
+                                        category === option && styles.modalOptionTextSelected
+                                    ]}>{option}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            {categoryQuery.length > 0 &&
+                                !categoryOptions.some(option => option.toLowerCase() === categoryQuery.toLowerCase()) && (
+                                    <TouchableOpacity
+                                        style={[styles.modalOption, { backgroundColor: '#e0f7fa' }]}
+                                        onPress={() => {
+                                            setCategory(categoryQuery);
+                                            setShowCategoryModal(false);
+                                        }}
+                                    >
+                                        <Text style={styles.modalOptionText}>+ Add "{categoryQuery}"</Text>
+                                    </TouchableOpacity>
+                                )}
+                        </ScrollView>
+                    </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
 
@@ -665,7 +773,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 20,
         width: '80%',
-        maxWidth: 400,
+        maxWidth: 420,
     },
     modalTitle: {
         fontSize: 18,
@@ -712,8 +820,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingBlock: 18,
-        borderRadius: 8,
-        // marginBottom: 16,
+        borderTopRightRadius: 8,
+        borderTopLeftRadius: 8,
         gap: 8,
     },
     expandButtonText: {
@@ -726,6 +834,7 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         flex: 1,
+        height: '100%',
     },
     listContainer: {
         paddingInline: 20,

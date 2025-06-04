@@ -1,15 +1,25 @@
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { createContext, useContext } from 'react';
+import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import { createContext, useContext, useState } from 'react';
 
 // Define the context and its type
 interface AppContextType {
-    // hasSeenIntro: boolean | null;
-    // setHasSeenIntro: React.Dispatch<React.SetStateAction<boolean | null>>;
-    User: FirebaseAuthTypes.User | null
-    setUser: React.Dispatch<React.SetStateAction<FirebaseAuthTypes.User | null>>
+    User: FirebaseFirestoreTypes.DocumentData | null
+    setUser: React.Dispatch<React.SetStateAction<FirebaseFirestoreTypes.DocumentData | null>>
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [User, setUser] = useState<FirebaseFirestoreTypes.DocumentData | null>(null);
+
+    return (
+        <AppContext.Provider value={{ User, setUser }}>
+            {children}
+        </AppContext.Provider>
+    );
+};
+
 
 // Custom hook to use the AppContext
 export function useAppContext() {

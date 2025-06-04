@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Dimensions, FlatList, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Feature {
     key: string;
@@ -28,11 +29,11 @@ const screenWidth = Dimensions.get('window').width;
 const padding = 20;
 const gap = 16;
 const itemWidth = (screenWidth - (padding * 2) - gap) / numColumns; // Account for padding and gap
-
 const statusBarHeight = Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 10;
 
 const HomeScreen: React.FC = () => {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [alert, setAlert] = React.useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
     const renderItem = ({ item }: { item: Feature }) => (
@@ -102,7 +103,7 @@ const HomeScreen: React.FC = () => {
     }
 
     return (
-        <View style={[styles.container, { paddingTop: statusBarHeight }]}>
+        <View style={[styles.container, { paddingTop: Platform.OS == 'android' ? insets.top | 0 : insets.top }]}>
             <View style={styles.header}>
                 <Text style={styles.welcomeText}>Welcome back!</Text>
                 <Text style={styles.subText}>What would you like to do today?</Text>

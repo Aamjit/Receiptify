@@ -21,24 +21,11 @@ type PastReceipt = {
     receiptNumber: string
     date: string
     total: number
+    totalAfterDiscount: number
+    discount?: number // Add discount field
     items: ReceiptItem[]
     timestamp?: number | null
 }
-
-// type BusinessInfo = {
-//     userId: string
-//     name: ''
-//     email: authResult.email || ''
-// businessLogo: ''
-// phoneNumber: ''
-// address: ''
-// gstin: ''
-// businessType: ''
-// panNumber: ''
-// website: ''
-// otherInfo: ''
-// createdAt: 
-// }
 
 const PastReceipts = () => {
     const [modalVisible, setModalVisible] = useState(false)
@@ -95,6 +82,8 @@ const PastReceipts = () => {
                         receiptNumber: data.receiptNumber,
                         date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : '',
                         total: data.total,
+                        totalAfterDiscount: data.totalAfterDiscount,
+                        discount: data.discount || 0, // Add discount
                         items: data.items,
                         timestamp: data.timestamp || null,
                     })
@@ -103,10 +92,12 @@ const PastReceipts = () => {
                 receiptsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
                 setPastReceipts(receiptsData)
             } catch (error) {
-                setAlert({ visible: true, title: 'Error', message: 'Failed to fetch past receipts.', actions: [{ text: 'OK' }] });
+                setAlert({ visible: true, title: 'Error', message: 'Failed to fetch past receipts.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
                 console.error('Error fetching past receipts:', error)
             } finally {
-                setIsLoading({ state: false, message: '' })
+                setTimeout(() => {
+                    setIsLoading({ state: false, message: '' })
+                }, 500); // Simulate network delay
             }
         }
         fetchPastReceipts()
@@ -137,6 +128,8 @@ const PastReceipts = () => {
                 time: selectedReceipt.timestamp ? new Date(selectedReceipt.timestamp).toLocaleTimeString() : '',
                 items: selectedReceipt.items,
                 total: selectedReceipt.total,
+                discount: selectedReceipt.discount || 0, // Pass discount to HTML generator
+                totalAfterDiscount: selectedReceipt.totalAfterDiscount, // Pass totalAfterDiscount to HTML generator
                 businessInfo: {
                     name: userData?.name || "Your Business Name",
                     address: userData?.address || "Area, City, Country",
@@ -149,7 +142,7 @@ const PastReceipts = () => {
             const { uri } = await Print.printToFileAsync({ html });
             return uri;
         } catch (error) {
-            setAlert({ visible: true, title: 'Error', message: 'Failed to generate PDF.', actions: [{ text: 'OK' }] });
+            setAlert({ visible: true, title: 'Error', message: 'Failed to generate PDF.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             console.error('PDF generation error:', error);
             return null;
         } finally {
@@ -160,7 +153,6 @@ const PastReceipts = () => {
     const handleSharePDF = async () => {
         setIsLoading({ state: true, message: 'Preparing PDF for sharing...' });
         try {
-
             const pdfUri = await generatePDF();
             if (pdfUri) {
                 try {
@@ -168,14 +160,14 @@ const PastReceipts = () => {
                         mimeType: 'application/pdf',
                         dialogTitle: 'Share Receipt PDF',
                     });
-                    setAlert({ visible: true, title: 'Success', message: 'Report generated successfully', actions: [{ text: 'OK' }] });
+                    setAlert({ visible: true, title: 'Success', message: 'Report generated successfully', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
                 } catch (error) {
-                    setAlert({ visible: true, title: 'Error', message: 'Failed to share PDF.', actions: [{ text: 'OK' }] });
+                    setAlert({ visible: true, title: 'Error', message: 'Failed to share PDF.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
                     console.error('PDF sharing error:', error);
                 }
             }
         } catch (error) {
-            setAlert({ visible: true, title: 'Error', message: 'Failed to prepare PDF for sharing.', actions: [{ text: 'OK' }] });
+            setAlert({ visible: true, title: 'Error', message: 'Failed to prepare PDF for sharing.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             console.error('PDF preparation error:', error);
         } finally {
             setIsLoading({ state: false, message: '' });
@@ -282,56 +274,64 @@ const PastReceipts = () => {
                             </TouchableOpacity>
                         </View>
                         {selectedReceipt && (
-                            <>
-                                <ScrollView
-                                    style={styles.modalScrollView}
-                                    showsVerticalScrollIndicator={false}
-                                >
-                                    <View style={styles.receiptInfo}>
-                                        <View style={styles.infoRow}>
-                                            <Text style={styles.infoLabel}>Receipt Number</Text>
-                                            <Text style={styles.infoValue}>{selectedReceipt.receiptNumber}</Text>
-                                        </View>
-                                        <View style={styles.infoRow}>
-                                            <Text style={styles.infoLabel}>Date</Text>
-                                            <Text style={styles.infoValue}>{formatDate(new Date(selectedReceipt.date))}</Text>
-                                        </View>
-                                        {selectedReceipt.timestamp && (
-                                            <View style={styles.infoRow}>
-                                                <Text style={styles.infoLabel}>Time</Text>
-                                                <Text style={styles.infoValue}>
-                                                    {new Date(selectedReceipt.timestamp).toLocaleTimeString()}
-                                                </Text>
-                                            </View>
-                                        )}
+                            <ScrollView
+                                style={styles.modalScrollView}
+                                showsVerticalScrollIndicator={false}
+                            >
+                                <View style={styles.receiptInfo}>
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.infoLabel}>Receipt Number</Text>
+                                        <Text style={styles.infoValue}>{selectedReceipt.receiptNumber}</Text>
                                     </View>
-
-                                    <View style={styles.itemsSection}>
-                                        <Text style={styles.itemsSectionTitle}>Items</Text>
-                                        {selectedReceipt.items.map((item, index) => (
-                                            <View key={index} style={styles.itemCard}>
-                                                <View style={styles.itemInfo}>
-                                                    <Text style={styles.itemName}>{item.name}</Text>
-                                                    <Text style={styles.itemQuantity}>x{item.quantity}</Text>
-                                                </View>
-                                                <Text style={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(2)}</Text>
-                                            </View>
-                                        ))}
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.infoLabel}>Date</Text>
+                                        <Text style={styles.infoValue}>{formatDate(new Date(selectedReceipt.date))}</Text>
                                     </View>
+                                    {selectedReceipt.timestamp && (
+                                        <View style={styles.infoRow}>
+                                            <Text style={styles.infoLabel}>Time</Text>
+                                            <Text style={styles.infoValue}>
+                                                {new Date(selectedReceipt.timestamp).toLocaleTimeString()}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
 
-                                    <View style={styles.totalSection}>
+                                <View style={styles.itemsSection}>
+                                    <Text style={styles.itemsSectionTitle}>Items</Text>
+                                    {selectedReceipt.items.map((item, index) => (
+                                        <View key={index} style={styles.itemCard}>
+                                            <View style={styles.itemInfo}>
+                                                <Text style={styles.itemName}>{item.name}</Text>
+                                                <Text style={styles.itemQuantity}>x{item.quantity}</Text>
+                                            </View>
+                                            <Text style={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(2)}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+
+                                <View style={styles.totalSection}>
+                                    <View style={{ marginBottom: 6 }}>
+                                        <Text style={styles.totalLabel}>Subtotal</Text>
+                                        <Text style={styles.subtotalAmount}>₹{selectedReceipt.total ? selectedReceipt.total.toFixed(2) : '0.00'}</Text>
+                                    </View>
+                                    <View style={{ marginBottom: 6 }}>
+                                        <Text style={styles.discountLabel}>Discount</Text>
+                                        <Text style={styles.discountAmount}>{typeof selectedReceipt.discount === 'number' ? selectedReceipt.discount : 0}%</Text>
+                                    </View>
+                                    <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 8, marginTop: 2 }}>
                                         <Text style={styles.totalLabel}>Total Amount</Text>
-                                        <Text style={styles.totalAmount}>₹{selectedReceipt.total.toFixed(2)}</Text>
+                                        <Text style={styles.finalTotalAmount}>₹{selectedReceipt.totalAfterDiscount ? selectedReceipt.totalAfterDiscount.toFixed(2) : selectedReceipt.total.toFixed(2)}</Text>
                                     </View>
-                                </ScrollView>
-                                <TouchableOpacity
-                                    style={styles.shareButton}
-                                    onPress={handleSharePDF}
-                                >
-                                    <Text style={styles.shareButtonText}>Download / Share PDF</Text>
-                                </TouchableOpacity>
-                            </>
+                                </View>
+                            </ScrollView>
                         )}
+                        <TouchableOpacity
+                            style={styles.shareButton}
+                            onPress={handleSharePDF}
+                        >
+                            <Text style={styles.shareButtonText}>Download / Share PDF</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         width: '90%',
-        maxHeight: '100%',
+        maxHeight: '90%',
         backgroundColor: '#fff',
         borderRadius: 16,
         shadowColor: '#000',
@@ -456,7 +456,6 @@ const styles = StyleSheet.create({
     },
     modalScrollView: {
         padding: 20,
-
     },
     receiptInfo: {
         backgroundColor: '#f8f9fa',
@@ -479,7 +478,7 @@ const styles = StyleSheet.create({
         color: '#1a1a1a',
     },
     itemsSection: {
-        marginBottom: 20,
+        marginBottom: 10,
     },
     itemsSectionTitle: {
         fontSize: 16,
@@ -527,17 +526,35 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f9fa',
         borderRadius: 12,
         padding: 16,
-        marginBlock: 8,
+        marginBottom: 30,
+    },
+    subtotalAmount: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#334155',
+    },
+    discountLabel: {
+        fontSize: 13,
+        color: '#64748b',
+        marginBottom: 2,
+    },
+    discountAmount: {
+        fontSize: 18,
+        color: '#f59e42',
+        fontWeight: '600',
     },
     totalLabel: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 4,
+        fontSize: 13,
+        color: '#64748b',
+        fontWeight: '500',
+        marginBottom: 2,
+        letterSpacing: 0.1,
     },
-    totalAmount: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#1a1a1a',
+    finalTotalAmount: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#0ea5e9',
+        marginTop: 2,
     },
     emptyStateContainer: {
         flex: 1,
