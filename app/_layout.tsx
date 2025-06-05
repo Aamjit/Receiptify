@@ -1,25 +1,15 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React from 'react';
 import 'react-native-reanimated';
-import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar, StyleSheet } from 'react-native';
-import { AppContext } from '../hooks/useApp';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppProvider } from '../hooks/useApp';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-  // if (!loaded || hasSeenIntro === null) {
-  //   // Async font loading or AsyncStorage check only occurs in development.
-  //   return null;
-  // }
-
   return (
     <AppProvider>
       <ThemeProvider value={colorScheme === 'light' ? DarkTheme : DefaultTheme} >

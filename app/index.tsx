@@ -20,7 +20,7 @@ function SplashScreen() {
 
     return (
         <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]}>
-            <Image source={require('@/assets/images/Receiptify.webp')} style={styles.splashIcon} resizeMode="contain" />
+            <Image source={require('@/assets/images/receiptify-icon.png')} style={styles.splashIcon} resizeMode="contain" />
         </Animated.View>
     );
 }
@@ -82,13 +82,13 @@ export default function Index() {
 const styles = StyleSheet.create({
     splashContainer: {
         flex: 1,
-        backgroundColor: '#fbfafd',
+        backgroundColor: '#fbfbfb',
         justifyContent: 'center',
         alignItems: 'center',
     },
     splashIcon: {
-        width: 360,
-        height: 360,
+        width: 240,
+        height: 240,
     },
     splashText: {
         fontSize: 28,

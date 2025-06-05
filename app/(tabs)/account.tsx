@@ -8,12 +8,13 @@ import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, Touchab
 import CustomAlertModal from '@/components/CustomAlertModal';
 import EditProfileModal from '../components/EditProfileModal';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { useAppContext } from '@/hooks/useApp';
 
 const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> = ({ visible, onClose }) => {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState({ state: false, text: '' });
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
     const handleChange = async () => {
@@ -25,7 +26,7 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
             setAlert({ visible: true, title: 'Error', message: 'New passwords do not match.', actions: [{ text: 'OK' }] });
             return;
         }
-        setLoading(true);
+        setLoading({ state: true, text: "Updating password..." });
         try {
             const auth = getAuth();
             const user = auth.currentUser;
@@ -37,7 +38,7 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
         } catch (err: any) {
             setAlert({ visible: true, title: 'Error', message: err.message || 'Failed to change password.', actions: [{ text: 'OK' }] });
         } finally {
-            setLoading(false);
+            setLoading({ ...loading, state: false });
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
@@ -73,12 +74,12 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
                     />
-                    {loading ? <ActivityIndicator size="large" color="#3b82f6" style={{ marginVertical: 10 }} /> : null}
+                    {loading.state ? <ActivityIndicator size="large" color="#3b82f6" style={{ marginVertical: 10 }} /> : null}
                     <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 10 }}>
-                        <TouchableOpacity style={{ backgroundColor: '#e5e7eb', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8, marginRight: 8 }} onPress={onClose} disabled={loading}>
+                        <TouchableOpacity style={{ backgroundColor: '#e5e7eb', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8, marginRight: 8 }} onPress={onClose} disabled={loading.state}>
                             <Text style={{ color: '#3b82f6', fontWeight: '600', fontSize: 15 }}>Cancel</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={{ backgroundColor: '#3b82f6', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8, alignItems: 'center' }} onPress={handleChange} disabled={loading}>
+                        <TouchableOpacity style={{ backgroundColor: '#3b82f6', paddingVertical: 10, paddingHorizontal: 22, borderRadius: 8, alignItems: 'center' }} onPress={handleChange} disabled={loading.state}>
                             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Change</Text>
                         </TouchableOpacity>
                     </View>
@@ -97,29 +98,33 @@ const ChangePasswordModal: React.FC<{ visible: boolean; onClose: () => void }> =
 
 const AccountScreen: React.FC = () => {
     const router = useRouter();
-    const [user, setUser] = useState<FirebaseFirestoreTypes.DocumentData | null>();
+    const { User, setUser } = useAppContext();
+    // const [user, setUser] = useState<FirebaseFirestoreTypes.DocumentData | null>();
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [changePasswordVisible, setChangePasswordVisible] = useState(false);
     const [imageLoading, setImageLoading] = useState(false);
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [loggingOut, setLoggingOut] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState({ state: true, text: "Loading..." });
 
     useEffect(() => {
-        const fetchUser = async () => {
-            // Fetch user data from firestore collection "Users" where phone number equals User's
-            try {
-                const docPromise = await getDocs(query(collection(getFirestore(), 'Users'), where('userId', '==', getAuth().currentUser?.uid)))
-                docPromise.forEach(doc => {
-                    setUser(doc.data())
-                })
-            } catch (error) {
-                console.error('Error checking email existence:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchUser();
+        // const fetchUser = async () => {
+        //     // Fetch user data from firestore collection "Users" where phone number equals User's
+        //     try {
+        //         const docPromise = await getDocs(query(collection(getFirestore(), 'Users'), where('userId', '==', getAuth().currentUser?.uid)))
+        //         docPromise.forEach(doc => {
+        //             setUser(doc.data())
+        //         })
+        //     } catch (error) {
+        //         console.error('Error checking email existence:', error);
+        //     } finally {
+        //         setLoading(false);
+        //     }
+        // };
+        // fetchUser();
+        if (User) {
+            setLoading({ state: false, text: '' });
+        }
     }, [])
 
     const handleEditProfile = () => {
@@ -127,7 +132,7 @@ const AccountScreen: React.FC = () => {
     };
 
     const handleSaveProfile = async (newName: string, newAddress: string, newPan: string, newGstin: string, newPhone: string, newWebsite: string, logoUrl?: string) => {
-
+        setLoading({ state: true, text: "Saving user data..." })
         try {
             const db = getFirestore();
             const userRef = collection(db, 'Users');
@@ -136,7 +141,7 @@ const AccountScreen: React.FC = () => {
             if (!querySnapshot.empty) {
                 const docId = querySnapshot.docs[0].id;
                 const userDocRef = doc(db, 'Users', docId);
-                await updateDoc(userDocRef, {
+                const updatedUser = {
                     name: newName,
                     address: newAddress,
                     panNumber: newPan,
@@ -144,8 +149,10 @@ const AccountScreen: React.FC = () => {
                     phoneNumber: newPhone,
                     website: newWebsite,
                     ...(logoUrl ? { businessLogo: logoUrl } : {}),
-                });
-                setUser({ ...user, name: newName, address: newAddress, panNumber: newPan, gstin: newGstin, phoneNumber: newPhone, website: newWebsite, ...(logoUrl ? { businessLogo: logoUrl } : {}) });
+                }
+                await updateDoc(userDocRef, updatedUser);
+                setUser({ ...User, ...updatedUser });
+                // setUser({ ...User, name: newName, address: newAddress, panNumber: newPan, gstin: newGstin, phoneNumber: newPhone, website: newWebsite, ...(logoUrl ? { businessLogo: logoUrl } : {}) });
                 setAlert({ visible: true, title: 'Success', message: 'Profile updated successfully.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             } else {
                 setAlert({ visible: true, title: 'Error', message: 'User document not found.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
@@ -154,6 +161,7 @@ const AccountScreen: React.FC = () => {
             setAlert({ visible: true, title: 'Error', message: 'Failed to update profile.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
             console.error('Error updating profile:', error);
         } finally {
+            setLoading({ state: false, text: "" })
             setEditModalVisible(false);
         }
     };
@@ -208,11 +216,11 @@ const AccountScreen: React.FC = () => {
         });
     };
 
-    if (loading) {
+    if (loading.state) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' }}>
                 <ActivityIndicator size="large" color="#3b82f6" />
-                <Text style={{ marginTop: 12, color: '#3b82f6', fontWeight: '600', fontSize: 16 }}>Loading account...</Text>
+                <Text style={{ marginTop: 12, color: '#3b82f6', fontWeight: '600', fontSize: 16 }}>{loading.text}</Text>
             </View>
         );
     }
@@ -228,10 +236,10 @@ const AccountScreen: React.FC = () => {
             <StatusBar barStyle="dark-content" />
             {/* <Text style={styles.title}> Account Details </Text> */}
             <View style={styles.profileImageContainer}>
-                {user?.businessLogo ? (
+                {User?.businessLogo ? (
                     <View>
                         <Image
-                            source={{ uri: user?.businessLogo }}
+                            source={{ uri: User?.businessLogo }}
                             style={styles.profileImage}
                             onLoadStart={() => setImageLoading(true)}
                             onLoadEnd={() => setImageLoading(false)}
@@ -254,15 +262,15 @@ const AccountScreen: React.FC = () => {
             </View>
             <View style={styles.infoContainer}>
                 <Text style={styles.label}>Name:</Text>
-                <Text style={styles.value}>{user?.name}</Text>
+                <Text style={styles.value}>{User?.name}</Text>
             </View>
             <View style={styles.infoContainer}>
                 <Text style={styles.label}>Email:</Text>
-                <Text style={styles.value}>{user?.email}</Text>
+                <Text style={styles.value}>{User?.email}</Text>
             </View>
             <View style={styles.infoContainer}>
                 <Text style={styles.label}>Phone:</Text>
-                <Text style={styles.value}>{user?.phoneNumber && "+91-" + user?.phoneNumber}</Text>
+                <Text style={styles.value}>{User?.phoneNumber && "+91-" + User?.phoneNumber}</Text>
             </View>
 
             <TouchableOpacity style={styles.button} onPress={handleEditProfile}>
@@ -280,13 +288,13 @@ const AccountScreen: React.FC = () => {
             <EditProfileModal
                 userId={getAuth().currentUser?.uid || ''}
                 visible={editModalVisible}
-                initialName={user?.name || ''}
-                initialAddress={user?.address || ''}
-                initialPanNumber={user?.panNumber || ''}
-                initialGstin={user?.gstin || ''}
-                initialPhoneNumber={user?.phoneNumber || ''}
-                initialWebsite={user?.website || ''}
-                initialLogo={user?.businessLogo || ''}
+                initialName={User?.name || ''}
+                initialAddress={User?.address || ''}
+                initialPanNumber={User?.panNumber || ''}
+                initialGstin={User?.gstin || ''}
+                initialPhoneNumber={User?.phoneNumber || ''}
+                initialWebsite={User?.website || ''}
+                initialLogo={User?.businessLogo || ''}
                 onSave={handleSaveProfile}
                 onCancel={() => setEditModalVisible(false)}
             />
