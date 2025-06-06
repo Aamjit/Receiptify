@@ -155,7 +155,7 @@ const CreateReceipt = () => {
         });
     }
 
-    const saveReceipt = async () => {
+    const saveReceipt = async (status: 'active' | 'complete' = 'active') => {
         if (Object.keys(receiptItems).length === 0) {
             setAlert({ visible: true, title: 'No items', message: 'Please add items to the receipt before completing.' });
             return;
@@ -182,7 +182,7 @@ const CreateReceipt = () => {
             total: calculateTotal(),
             totalAfterDiscount: calculateDiscountTotal(),
             discount, // Save discount percentage
-            status: "active",
+            status: status,
             createdAt: new Date(),
             timestamp: Date.now()
         };
@@ -211,7 +211,7 @@ const CreateReceipt = () => {
             summary += `\nTotal: $${calculateTotal().toFixed(2)}`
             setAlert({
                 visible: true,
-                title: 'Receipt Saved',
+                title: status === 'active' ? 'Receipt Saved' : 'Receipt Finalized',
                 message: summary.replace(/\n/g, '\n'),
                 actions: [
                     {
@@ -394,16 +394,33 @@ const CreateReceipt = () => {
                     </View>
                 </View>
 
-                <TouchableOpacity
-                    onPress={saveReceipt}
-                    style={[
-                        styles.saveButton,
-                        Object.keys(receiptItems).length === 0 && styles.saveButtonDisabled
-                    ]}
-                    disabled={Object.keys(receiptItems).length === 0}
-                >
-                    <Text style={styles.saveButtonText}>Save Receipt</Text>
-                </TouchableOpacity>
+                <View style={styles.buttonContainer}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            saveReceipt('active')
+                        }}
+                        style={[
+                            styles.saveButton,
+                            Object.keys(receiptItems).length === 0 && styles.saveButtonDisabled
+                        ]}
+                        disabled={Object.keys(receiptItems).length === 0}
+                    >
+                        <Text style={styles.saveButtonText}>Save as Active</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => {
+                            saveReceipt('complete')
+                        }}
+                        style={[
+                            styles.saveButton,
+                            { backgroundColor: "#4CAF50" },
+                            Object.keys(receiptItems).length === 0 && styles.saveButtonDisabled
+                        ]}
+                        disabled={Object.keys(receiptItems).length === 0}
+                    >
+                        <Text style={styles.saveButtonText}>Save & Finalize</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <CustomAlertModal
@@ -569,6 +586,7 @@ const styles = StyleSheet.create({
         marginLeft: 'auto'
     },
     saveButton: {
+        flex: 1,
         backgroundColor: '#2196F3',
         borderRadius: 12,
         paddingVertical: 16,
@@ -618,6 +636,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    buttonContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 4,
+        justifyContent: 'space-between',
+        gap: 12,
+    }
 });
 
 export default CreateReceipt;

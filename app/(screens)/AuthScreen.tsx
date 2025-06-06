@@ -280,7 +280,7 @@ const AuthScreen = () => {
             </View>
             :
             <View style={styles.container}>
-                <Image source={require('@/assets/images/Receiptify.webp')} style={styles.logo} resizeMode="contain" />
+                <Image source={require('@/assets/images/receiptify-round.webp')} style={styles.logo} resizeMode="contain" />
                 <Text style={styles.title}>{isSignUp ? 'Sign Up' : 'Sign In'}</Text>
                 <TextInput
                     style={styles.input}
@@ -356,13 +356,13 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         paddingHorizontal: 24,
-        backgroundColor: '#f8fafc',
+        backgroundColor: '#fbfbfb',
     },
     logo: {
-        width: 140,
-        height: 140,
+        width: 180,
+        height: 180,
         alignSelf: 'center',
-        marginBottom: 32,
+        marginBottom: 24,
     },
     title: {
         fontSize: 32,

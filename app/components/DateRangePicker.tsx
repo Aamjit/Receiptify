@@ -136,7 +136,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         const rangeInDays = Math.ceil((newEndDate.getTime() - newStartDate.getTime()) / (1000 * 3600 * 24));
 
         if (rangeInDays > propMaxRangeNumberOfDays) {
-            onError?.(`Cannot select a range longer than ${propMaxRangeNumberOfDays} days`);
+            onError?.(`Your account is restricted to range selection of ${propMaxRangeNumberOfDays} days`);
             return false;
         }
         return true;

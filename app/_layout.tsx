@@ -1,15 +1,22 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import React from 'react';
 import 'react-native-reanimated';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar, StyleSheet } from 'react-native';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppProvider } from '../hooks/useApp';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Set the animation options. This is optional.
+SplashScreen.setOptions({
+  duration: 500,
+  fade: true,
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
   return (
     <AppProvider>
       <ThemeProvider value={colorScheme === 'light' ? DarkTheme : DefaultTheme} >

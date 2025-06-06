@@ -131,12 +131,12 @@ const PastReceipts = () => {
                 discount: selectedReceipt.discount || 0, // Pass discount to HTML generator
                 totalAfterDiscount: selectedReceipt.totalAfterDiscount, // Pass totalAfterDiscount to HTML generator
                 businessInfo: {
-                    name: userData?.name || "Your Business Name",
-                    address: userData?.address || "Area, City, Country",
-                    phone: userData?.phoneNumber || "",
-                    email: userData?.email || "contact@business.com",
-                    website: userData?.website || "www.business.com",
-                    // logo: userData?.businessLogo || "", // Optional logo URL
+                    name: userData?.name || "Partnered with Receiptify",
+                    address: userData?.address,
+                    phone: userData?.phoneNumber,
+                    email: userData?.email,
+                    website: userData?.website,
+                    logo: userData?.businessLogo, // Optional logo URL
                 }
             });
             const { uri } = await Print.printToFileAsync({ html });

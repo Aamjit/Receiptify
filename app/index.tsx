@@ -73,7 +73,7 @@ export default function Index() {
         fetchUser();
     }, []);
 
-    if (showSplash) return <SplashScreen />;
+    // if (showSplash) return <SplashScreen />;
     if (introSeen === null) return null;
 
     return <Redirect href={introSeen !== "true" ? "/(screens)/IntroScreen" : !getAuth().currentUser?.emailVerified ? "/(screens)/AuthScreen" : User?.new ? "/AccountSetupScreen" : "/home"} />;
@@ -87,8 +87,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     splashIcon: {
-        width: 240,
-        height: 240,
+        width: 480,
+        height: 480,
     },
     splashText: {
         fontSize: 28,

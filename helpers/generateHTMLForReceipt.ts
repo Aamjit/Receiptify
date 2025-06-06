@@ -75,7 +75,9 @@ export function generateHTMLForReceipt(receiptData: ReceiptData): string {
                     height: 38px;
                     object-fit: contain;
                     margin-bottom: 2px;
-                    border-radius: 6px;
+                    border-radius: 100px;
+                    border-width: 2px;
+                    border-color: rgb(229, 231, 235)
                 }
                 .business-info h2 {
                     color: var(--primary-color);
@@ -153,10 +155,10 @@ export function generateHTMLForReceipt(receiptData: ReceiptData): string {
             <div class="container">
                 <div class="business-info">
                     ${businessInfo.logo ? `<img src="${businessInfo.logo}" alt="Business Logo" />` : ''}
-                    <h2>${businessInfo.name}</h2>
-                    <p>${businessInfo.address}</p>
-                    <p>Phone: +91-${businessInfo.phone}</p>
-                    <p>Email: ${businessInfo.email}</p>
+                    ${businessInfo.name ? `<h2>${businessInfo.name}</h2>` : ''}
+                    ${businessInfo.address ? `<p>${businessInfo.address}</p>` : ''}
+                    ${businessInfo.phone ? `<p>Phone: +91-${businessInfo.phone}</p>` : ""}
+                    ${businessInfo.email ? `<p>Email: ${businessInfo.email}</p>` : ''}
                     ${businessInfo.website ? `<p>Website: ${businessInfo.website}</p>` : ''}
                 </div>
                 <div class="receipt-header">

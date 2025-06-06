@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, GestureResponderEvent } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, GestureResponderEvent, ToastAndroid } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { collection, query, where, getDocs, getFirestore, Timestamp } from '@react-native-firebase/firestore';
 import { LineChart } from "react-native-chart-kit";
@@ -10,6 +10,9 @@ import { generateHTMLForReport } from '../../helpers/generateHTMLForReport';
 import DateRangePicker from '../components/DateRangePicker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { useAppContext } from '@/hooks/useApp';
+import resend from '@/lib/resend';
+import * as FileSystem from 'expo-file-system';
 
 type ReceiptItem = {
     id: string;
@@ -99,7 +102,7 @@ export default function Report() {
     const [dailySales, setDailySales] = useState<{ date: string; total: number }[]>([]);
     const [dailySalesCount, setDailySalesCount] = useState<{ date: string; count: number }[]>([]);
     const [exporting, setExporting] = useState(false);
-    const [userData, setUserDate] = useState<any>();
+    const { User } = useAppContext();
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [receiptsHeatmap, setReceiptsHeatmap] = useState<{ day: string; hour: number; count: number }[]>([]);
 
@@ -221,40 +224,40 @@ export default function Report() {
         setReceiptsHeatmap(heatmapArray);
     };
 
-    const fetchUserData = async () => {
-        setLoading({ state: true, message: 'Loading user data...' });
-        try {
-            const db = getFirestore();
-            const userRef = collection(db, 'Users');
-            const q = query(userRef, where('userId', '==', getAuth().currentUser?.uid));
-            const querySnapshot = await getDocs(q);
+    // const fetchUserData = async () => {
+    //     setLoading({ state: true, message: 'Loading user data...' });
+    //     try {
+    //         const db = getFirestore();
+    //         const userRef = collection(db, 'Users');
+    //         const q = query(userRef, where('userId', '==', getAuth().currentUser?.uid));
+    //         const querySnapshot = await getDocs(q);
 
-            if (!querySnapshot.empty) {
-                // Assuming you have a single user document
-                const userData = querySnapshot.docs[0].data();
-                setUserDate(userData);
-                // You can use userData to set any additional state if needed
-            } else {
-                console.warn('No user data found for the current user.');
-            }
-        } catch (error) {
-            console.error('Error fetching user data:', error);
-            setAlert({ visible: true, title: 'Error', message: 'Failed to fetch user data', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
-        } finally {
-            setLoading({ state: false, message: '' });
-        }
-    }
+    //         if (!querySnapshot.empty) {
+    //             // Assuming you have a single user document
+    //             const userData = querySnapshot.docs[0].data();
+    //             setUserDate(userData);
+    //             // You can use userData to set any additional state if needed
+    //         } else {
+    //             console.warn('No user data found for the current user.');
+    //         }
+    //     } catch (error) {
+    //         console.error('Error fetching user data:', error);
+    //         setAlert({ visible: true, title: 'Error', message: 'Failed to fetch user data', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
+    //     } finally {
+    //         setLoading({ state: false, message: '' });
+    //     }
+    // }
 
     const generateHTML = () => {
 
         // Add a default businessInfo object for the report
         const businessInfo = {
-            name: userData?.name || "Partnered with Receiptify",
-            address: userData?.address || "",
-            phone: userData?.phoneNumber || "",
-            email: userData?.email || "",
-            website: userData?.website || "",
-            logo: userData?.businessLogo, // Use your logo asset here
+            name: User?.name || "Partnered with Receiptify",
+            address: User?.address,
+            phone: User?.phoneNumber,
+            email: User?.email,
+            website: User?.website,
+            logo: User?.businessLogo, // Use your logo asset here
         };
 
         return generateHTMLForReport({
@@ -331,13 +334,45 @@ export default function Report() {
         }
     };
 
+    const sendReportEmail = async () => {
+        if (!User?.email) {
+            setAlert({ visible: true, title: 'Error', message: 'No user email found.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
+            return;
+        }
+        try {
+            setLoading({ state: true, message: 'Sending email...' });
+            // 1. Generate the PDF file from HTML
+            const html = generateHTML();
+            const { uri } = await Print.printToFileAsync({ html, base64: false });
+
+            // 2. Read the PDF as base64
+            const pdfBase64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+
+            // 3. Send the email with the PDF attached
+            await resend.emails.send({
+                from: 'Receipty Developer<aayanglem@gmail.com>', // Use your verified sender
+                to: [User.email],
+                subject: 'Your Sales Report from Receiptify',
+                html,
+                attachments: [
+                    {
+                        filename: 'Receiptify-Report.pdf',
+                        content: pdfBase64,
+                        contentType: 'application/pdf',
+                    }
+                ]
+            });
+            setAlert({ visible: true, title: 'Success', message: 'Report sent to your email!', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
+        } catch (error: any) {
+            setAlert({ visible: true, title: 'Error', message: error.message || 'Failed to send email.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
+        } finally {
+            setLoading({ state: false, message: '' });
+        }
+    };
+
     useEffect(() => {
         fetchReceipts();
     }, [selectedRange]);
-
-    useEffect(() => {
-        fetchUserData();
-    }, []);
 
     if (loading.state) {
         return (
@@ -368,15 +403,17 @@ export default function Report() {
 
             <View style={styles.exportContainer}>
                 <TouchableOpacity
-                    style={[styles.exportButton, { backgroundColor: "rgb(240, 200, 0)" }, exporting ? styles.exportButtonDisabled : null]}
-                    onPress={() => {
+                    style={[styles.exportButton, { backgroundColor: "rgb(234, 67, 53)" }, exporting ? styles.exportButtonDisabled : null]}
+                    onPress={(e) => {
+                        e.preventDefault()
                         if (Platform.OS === 'android') {
                             // Use ToastAndroid for Android
                             // @ts-ignore
-                            import('react-native').then(RN => RN.ToastAndroid.show('Email Report is currently unavailable.', RN.ToastAndroid.SHORT));
+                            ToastAndroid.show('Email Report is currently unavailable.', ToastAndroid.SHORT);
                         } else {
                             setAlert({ visible: true, title: 'Unavailable', message: 'Email Report is currently unavailable.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
                         }
+                        // sendReportEmail()
                     }}
                     disabled={false}
                 >
