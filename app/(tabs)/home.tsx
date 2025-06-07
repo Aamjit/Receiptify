@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Dimensions, FlatList, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,7 +29,6 @@ const screenWidth = Dimensions.get('window').width;
 const padding = 20;
 const gap = 16;
 const itemWidth = (screenWidth - (padding * 2) - gap) / numColumns; // Account for padding and gap
-const statusBarHeight = Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 10;
 
 const HomeScreen: React.FC = () => {
     const router = useRouter();
@@ -103,7 +102,7 @@ const HomeScreen: React.FC = () => {
     }
 
     return (
-        <View style={[styles.container, { paddingTop: Platform.OS == 'android' ? insets.top | 0 : insets.top }]}>
+        <View style={[styles.container, { paddingTop: Platform.OS === 'android' ? insets.top | 0 : insets.top }]}>
             <View style={styles.header}>
                 <Text style={styles.welcomeText}>Welcome back!</Text>
                 <Text style={styles.subText}>What would you like to do today?</Text>

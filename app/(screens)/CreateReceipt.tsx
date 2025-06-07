@@ -4,8 +4,9 @@ import { addDoc, collection, getDocs, getFirestore, query, where, doc, updateDoc
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
-import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import CustomAlertModal from '@/components/CustomAlertModal';
+import { useAppContext } from '@/hooks/useApp'
 
 type InventoryItem = {
     id: string
@@ -35,9 +36,9 @@ const CreateReceipt = () => {
         state: true,
         text: "",
     });
-    const [userDocId, setUserDocId] = useState<string>('');
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: Array<{ text: string; onPress?: () => void; style?: any }> }>({ visible: false, title: '', message: '' });
     const userData = getAuth().currentUser
+    const { User, setUser } = useAppContext();
 
     useEffect(() => {
         fetchInventory();
@@ -65,27 +66,16 @@ const CreateReceipt = () => {
                 return;
             }
 
-            const userQuery = await getDocs(
-                query(collection(getFirestore(), 'Users'),
-                    where('email', '==', userEmail))
-            );
+            // Ensure prices are converted to numbers
+            const inventory = (User?.inventory || []).map((item: any) => ({
+                ...item,
+                price: typeof item.price === 'string' ? parseFloat(item.price) : item.price
+            }));
+            setInventoryItems(inventory);
 
-            if (!userQuery.empty) {
-                const userDoc = userQuery.docs[0];
-                const userData = userDoc.data();
-                setUserDocId(userDoc.id);
-
-                // Ensure prices are converted to numbers
-                const inventory = (userData.inventory || []).map((item: any) => ({
-                    ...item,
-                    price: typeof item.price === 'string' ? parseFloat(item.price) : item.price
-                }));
-                setInventoryItems(inventory);
-
-                // Generate receipt number based on lastReceiptNumber
-                const nextNumber = generateNextReceiptNumber(userData.lastReceiptNumber);
-                setReceiptNumber(nextNumber);
-            }
+            // Generate receipt number based on lastReceiptNumber
+            const nextNumber = generateNextReceiptNumber(User?.lastReceiptNumber);
+            setReceiptNumber(nextNumber);
         } catch (error) {
             console.error('Error fetching inventory:', error);
         } finally {
@@ -147,7 +137,7 @@ const CreateReceipt = () => {
                     style: 'destructive',
                     onPress: () => {
                         setReceiptItems({})
-                        setReceiptNumber('R-' + Date.now().toString())
+                        setReceiptNumber(generateNextReceiptNumber(User?.lastReceiptNumber))
                         router.back();
                     },
                 },
@@ -191,12 +181,21 @@ const CreateReceipt = () => {
             // Save the receipt
             await addDoc(collection(db, 'Receipts'), receiptData);
 
-            // Update lastReceiptNumber in Users document
-            if (userDocId) {
-                const userRef = doc(db, 'Users', userDocId);
-                await updateDoc(userRef, {
-                    lastReceiptNumber: parseInt(receiptNumber)
-                });
+            // Update lastReceiptNumber in Users document using userId field
+            if (User?.userId) {
+                const usersQuery = query(collection(db, 'Users'), where('userId', '==', User.userId));
+                const usersSnapshot = await getDocs(usersQuery);
+                if (!usersSnapshot.empty) {
+                    const userDoc = usersSnapshot.docs[0];
+                    const userRef = doc(db, 'Users', userDoc.id);
+                    const lastReceiptNumber = parseInt(receiptNumber);
+                    await updateDoc(userRef, {
+                        lastReceiptNumber: lastReceiptNumber
+                    });
+                    setUser({ ...User, lastReceiptNumber: lastReceiptNumber })
+                } else {
+                    console.warn('No user document found for userId:', User.userId);
+                }
             }
 
             let summary = `Receipt Number: ${receiptNumber}\n\nItems:\n`
@@ -208,7 +207,8 @@ const CreateReceipt = () => {
             if (discount > 0) {
                 summary += `\nDiscount: ${discount}%`;
             }
-            summary += `\nTotal: $${calculateTotal().toFixed(2)}`
+            summary += `\nSubtotal: $${calculateTotal().toFixed(2)}`
+            summary += `\nTotal: $${calculateDiscountTotal().toFixed(2)}`
             setAlert({
                 visible: true,
                 title: status === 'active' ? 'Receipt Saved' : 'Receipt Finalized',

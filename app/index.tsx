@@ -13,7 +13,7 @@ function SplashScreen() {
         Animated.timing(fadeAnim, {
             toValue: 0,
             duration: 600,
-            delay: 2400, // Start fading after 2.4s, finish at 3s
+            delay: 1400, // Start fading after 2.4s, finish at 3s
             useNativeDriver: true,
         }).start();
     }, [fadeAnim]);
@@ -32,22 +32,22 @@ export default function Index() {
     const { User, setUser } = useAppContext()
 
     useEffect(() => {
-        const timer = setTimeout(() => setShowSplash(false), 3000);
+        const timer = setTimeout(() => setShowSplash(false), 2000);
         return () => clearTimeout(timer);
-    }, []);
+    });
 
     useEffect(() => {
         const checkIntro = async () => {
             try {
                 const introSeen = await AsyncStorageIntro.getItem()
-                introSeen ? setIntroSeen(introSeen) : setIntroSeen("false")
+                setIntroSeen(introSeen ? introSeen : "false")
             } catch (error) {
                 console.error("Error reading intro seen status:", error);
                 setIntroSeen("false");
             }
         };
 
-        (Platform.OS == 'android' || Platform.OS == 'ios') && checkIntro();
+        (Platform.OS === 'android' || Platform.OS === 'ios') && checkIntro();
 
         const fetchUser = async () => {
             try {
@@ -73,7 +73,7 @@ export default function Index() {
         fetchUser();
     }, []);
 
-    // if (showSplash) return <SplashScreen />;
+    if (showSplash) return <SplashScreen />;
     if (introSeen === null) return null;
 
     return <Redirect href={introSeen !== "true" ? "/(screens)/IntroScreen" : !getAuth().currentUser?.emailVerified ? "/(screens)/AuthScreen" : User?.new ? "/AccountSetupScreen" : "/home"} />;

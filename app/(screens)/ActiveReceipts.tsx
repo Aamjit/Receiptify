@@ -3,8 +3,8 @@ import { getAuth } from '@react-native-firebase/auth';
 import { collection, doc, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import CustomDropdown from '../components/CustomDropdown';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
@@ -37,9 +37,6 @@ const ActiveReceipts = () => {
     // New state for inventory items
     const [inventoryItems, setInventoryItems] = useState<{ id: string; name: string; price: number }[]>([])
     const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string>('')
-
-    // State for custom dropdown visibility
-    const [dropdownVisible, setDropdownVisible] = useState(false)
 
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [pendingDelete, setPendingDelete] = useState<{ id: string; receiptNumber: string } | null>(null);
@@ -267,7 +264,7 @@ const ActiveReceipts = () => {
             </View>
             <View style={styles.receiptDetails}>
                 <Text style={styles.itemsCount}>{item.items.length} items</Text>
-                <Text style={styles.receiptTotal}>₹{item.total.toFixed(2)}</Text>
+                <Text style={styles.receiptTotal}>₹{item?.totalAfterDiscount ? item.totalAfterDiscount.toFixed(2) : item.total.toFixed(2)}</Text>
             </View>
         </TouchableOpacity>
     )
@@ -311,7 +308,7 @@ const ActiveReceipts = () => {
                     <Ionicons name="receipt-outline" size={64} color="#94a3b8" />
                     <Text style={styles.emptyStateTitle}>No Active Receipts</Text>
                     <Text style={styles.emptyStateMessage}>
-                        You don't have any active receipts yet.{'\n'}
+                        You don&apos;t have any active receipts yet.{'\n'}
                         Create a new receipt to get started.
                     </Text>
                     <TouchableOpacity

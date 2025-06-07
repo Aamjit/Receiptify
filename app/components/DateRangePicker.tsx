@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 interface DateRangePickerProps {
@@ -41,7 +41,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         } else if (showEndPicker) {
             setSelectedMonthYear(new Date(endDate.getFullYear(), endDate.getMonth(), 1));
         }
-    }, [showStartPicker, showEndPicker]);
+    }, [showStartPicker, showEndPicker, startDate, endDate]);
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-US', {

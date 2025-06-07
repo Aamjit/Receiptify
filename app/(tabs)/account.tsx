@@ -1,10 +1,10 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { getAuth, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from '@react-native-firebase/auth';
-import { collection, doc, FirebaseFirestoreTypes, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
+import { collection, doc, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert, ToastAndroid } from 'react-native';
+import React, { useState } from 'react';
+import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, ToastAndroid } from 'react-native';
 import CustomAlertModal from '@/components/CustomAlertModal';
 import EditProfileModal from '../components/EditProfileModal';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -105,27 +105,7 @@ const AccountScreen: React.FC = () => {
     const [imageLoading, setImageLoading] = useState(false);
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [loggingOut, setLoggingOut] = useState(false);
-    const [loading, setLoading] = useState({ state: true, text: "Loading..." });
-
-    useEffect(() => {
-        // const fetchUser = async () => {
-        //     // Fetch user data from firestore collection "Users" where phone number equals User's
-        //     try {
-        //         const docPromise = await getDocs(query(collection(getFirestore(), 'Users'), where('userId', '==', getAuth().currentUser?.uid)))
-        //         docPromise.forEach(doc => {
-        //             setUser(doc.data())
-        //         })
-        //     } catch (error) {
-        //         console.error('Error checking email existence:', error);
-        //     } finally {
-        //         setLoading(false);
-        //     }
-        // };
-        // fetchUser();
-        if (User) {
-            setLoading({ state: false, text: '' });
-        }
-    }, [])
+    const [loading, setLoading] = useState({ state: !User ? true : false, text: "Loading..." });
 
     const handleEditProfile = () => {
         setEditModalVisible(true);

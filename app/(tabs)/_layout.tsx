@@ -92,17 +92,20 @@ export default function TabLayout() {
         name="account"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <Image
+          tabBarIcon: ({ color, focused }) => {
+            return User?.businessLogo.length > 0 ? <Image
               source={{ uri: User?.businessLogo }}
-              // size={28}
               width={30}
               height={30}
-              // name={"person.crop.circle"}
-              // color={color}
               style={[focused ? styles.activeIcon : styles.icon, { borderRadius: 60, borderWidth: 1, borderColor: '#555' }]}
-            />
-          ),
+            /> :
+              <IconSymbol
+                size={30}
+                name={"person.crop.circle"}
+                color={color}
+                style={[focused ? styles.activeIcon : styles.icon]}
+              />
+          },
         }}
       />
     </Tabs>

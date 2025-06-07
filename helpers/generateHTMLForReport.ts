@@ -58,199 +58,158 @@ export function generateHTMLForReport({
         </tr>
     `).join('') : '';
 
+    // Merge daily sales and daily sales count into a single table
+    const salesCountMap = new Map<string, number>();
+    dailySalesCount.forEach(sale => {
+        salesCountMap.set(sale.date, sale.count);
+    });
+    const mergedDailySalesHTML = dailySales.map(sale => {
+        const count = salesCountMap.get(sale.date) ?? '';
+        return `
+        <tr>
+            <td>${sale.date}</td>
+            <td>₹${sale.total.toFixed(2)}</td>
+            <td>${count}</td>
+        </tr>
+    `;
+    }).join('');
+
     return `
         <html>
             <head>
+                <link href="https://fonts.googleapis.com/css?family=Inter:400,700,800&display=swap" rel="stylesheet">
                 <style>
-                    :root {
-                        --primary-color: #2196F3;
-                        --secondary-color: #1565c0;
-                        --text-color: #111827;
-                        --border-color: #e5e7eb;
-                        --background-color: #f9fafb;
-                        --hover-color: #e0e7ff;
-                        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-                        --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-                        --font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+                    body {
+                    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+                    color: #111827;
+                    line-height: 1.6;
+                    margin: 0;
+                    padding: 2rem;
+                    background-color: #f9fafb;
+                    -webkit-font-smoothing: antialiased;
+                    -moz-osx-font-smoothing: grayscale;
                     }
-
-                    * {
-                        box-sizing: border-box;
-                    }
-                    
-                    body { 
-                        font-family: var(--font-family);
-                        color: var(--text-color);
-                        line-height: 1.6;
-                        margin: 0;
-                        padding: 2rem;
-                        background-color: var(--background-color);
-                        -webkit-font-smoothing: antialiased;
-                        -moz-osx-font-smoothing: grayscale;
-                    }
-                    
                     .container {
-                        max-width: 900px;
-                        margin: 0 auto;
-                        background-color: #ffffff;
-                        padding: 2rem 2.5rem;
-                        border-radius: 16px;
-                        box-shadow: var(--shadow-md);
-                        border: 1px solid var(--border-color);
-                        transition: box-shadow 0.3s ease;
+                    max-width: 900px;
+                    margin: 0 auto;
+                    background-color: #fff;
+                    padding: 2rem 2.5rem;
+                    border-radius: 16px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border: 1px solid #e5e7eb;
+                    transition: box-shadow 0.3s ease;
                     }
-
                     .container:hover {
-                        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+                    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
                     }
-                    
-                    table { 
-                        width: 100%;
-                        border-collapse: separate;
-                        border-spacing: 0;
-                        margin: 1.5rem 0;
-                        font-size: 1rem;
-                        border-radius: 8px;
-                        overflow: hidden;
-                        box-shadow: var(--shadow-sm);
+                    .header {
+                    text-align: center;
+                    margin-bottom: 2rem;
+                    padding-bottom: 1.5rem;
+                    border-bottom: 3px solid #2196F3;
                     }
-                    
-                    th, td { 
-                        padding: 1.25rem 2rem;
-                        text-align: left;
-                        border-bottom: 1px solid var(--border-color);
-                    }
-                    
-                    th { 
-                        background-color: var(--primary-color);
-                        font-weight: 700;
-                        color: white;
-                        text-transform: uppercase;
-                        font-size: 0.85rem;
-                        letter-spacing: 0.1em;
-                        user-select: none;
-                    }
-                    
-                    tr:last-child td {
-                        border-bottom: none;
-                    }
-                    
-                    tr:nth-child(even) {
-                        background-color: #f3f4f6;
-                    }
-                    
-                    tr:hover {
-                        background-color: var(--hover-color);
-                        transition: background-color 0.25s ease-in-out;
-                    }
-                    
-                    .header { 
-                        text-align: center;
-                        margin-bottom: 2rem;
-                        padding-bottom: 1.5rem;
-                        border-bottom: 3px solid var(--primary-color);
-                    }
-                    
                     .header h1 {
-                        color: var(--primary-color);
-                        margin: 0;
-                        font-size: 2.5rem;
-                        font-weight: 800;
-                        letter-spacing: -0.03em;
-                        text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    color: #2196F3;
+                    margin: 0;
+                    font-size: 2.5rem;
+                    font-weight: 800;
+                    letter-spacing: -0.03em;
+                    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
                     }
-                    
                     .header p {
-                        color: #6b7280;
-                        font-size: 1.125rem;
-                        margin-top: 0.5rem;
-                        font-weight: 500;
+                    color: #6b7280;
+                    font-size: 1.125rem;
+                    margin-top: 0.5rem;
+                    font-weight: 500;
                     }
-                    
                     .summary {
-                        background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
-                        padding: 1.5rem 2rem;
-                        border-radius: 12px;
-                        margin: 2rem 0;
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                        gap: 1.75rem;
-                        box-shadow: var(--shadow-sm);
-                        color: var(--primary-color);
-                        font-weight: 600;
-                        font-size: 1.1rem;
+                    background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
+                    padding: 1.5rem 2rem;
+                    border-radius: 12px;
+                    margin: 2rem 0;
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 1.75rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    color: #2196F3;
+                    font-weight: 600;
+                    font-size: 1.1rem;
                     }
-                    
                     .summary h2 {
-                        grid-column: 1 / -1;
-                        margin: 0 0 1rem 0;
-                        color: var(--secondary-color);
-                        font-size: 1.5rem;
-                        font-weight: 700;
-                        letter-spacing: 0.05em;
+                    margin: 0 0 1rem 0;
+                    color: #1565c0;
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    letter-spacing: 0.05em;
                     }
-                    
                     .summary p {
-                        margin: 0;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
+                    margin: 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
                     }
-                    
                     .summary p strong {
-                        color: var(--text-color);
+                    color: #111827;
                     }
-                    
                     .section-title {
-                        color: var(--secondary-color);
-                        margin: 2rem 0 1rem 0;
-                        font-size: 1.5rem;
-                        font-weight: 700;
-                        display: flex;
-                        align-items: center;
-                        gap: 0.75rem;
-                        border-bottom: 2px solid var(--border-color);
-                        padding-bottom: 0.25rem;
+                    color: #1565c0;
+                    margin: 2rem 0 1rem 0;
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    border-bottom: 2px solid #e5e7eb;
+                    padding-bottom: 0.25rem;
                     }
-                    
+                    table {
+                    width: 100%;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                    margin: 1.5rem 0;
+                    font-size: 1rem;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    }
+                    table th, table td {
+                    padding: 1.25rem 2rem;
+                    text-align: left;
+                    border-bottom: 1px solid #e5e7eb;
+                    }
+                    table th {
+                    background-color: #2196F3;
+                    font-weight: 700;
+                    color: #fff;
+                    text-transform: uppercase;
+                    font-size: 0.85rem;
+                    letter-spacing: 0.1em;
+                    user-select: none;
+                    }
+                    tr:last-child td {
+                    border-bottom: none;
+                    }
+                    tr:nth-child(even) {
+                    background-color: #f3f4f6;
+                    }
+                    tr:hover {
+                    background-color: #e0e7ff;
+                    transition: background-color 0.25s ease-in-out;
+                    }
                     .footer {
-                        text-align: center;
-                        margin-top: 3rem;
-                        padding-top: 1.5rem;
-                        border-top: 2px solid var(--border-color);
-                        color: #6b7280;
-                        font-size: 0.9rem;
-                        font-weight: 500;
-                        font-style: italic;
+                    text-align: center;
+                    margin-top: 3rem;
+                    padding-top: 1.5rem;
+                    border-top: 2px solid #e5e7eb;
+                    color: #6b7280;
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                    font-style: italic;
                     }
-                    
                     .footer p {
-                        margin: 0.25rem 0;
-                    }
-                    
-                    @media print {
-                        body {
-                            padding: 0;
-                            background: white;
-                        }
-                        .container {
-                            box-shadow: none;
-                            padding: 0;
-                            border: none;
-                        }
-                    }
-
-                    @media (max-width: 600px) {
-                        .container {
-                            padding: 1rem 1.25rem;
-                        }
-                        .summary {
-                            grid-template-columns: 1fr;
-                            gap: 1rem;
-                        }
-                        .section-title {
-                            font-size: 1.25rem;
-                        }
+                    margin: 0.25rem 0;
                     }
                 </style>
             </head>
@@ -303,33 +262,19 @@ export function generateHTMLForReport({
                         </tbody>
                     </table>
 
-                    <h2 class="section-title">Daily Sales</h2>
+                    <h2 class="section-title">Daily Sales & Receipts</h2>
                     <table>
                         <thead>
                             <tr>
                                 <th>Date</th>
                                 <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${dailySalesHTML}
-                        </tbody>
-                    </table>
-
-                    ${dailySalesCount.length > 0 ? `
-                    <h2 class="section-title">Sales Count (Receipts per Day)</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Date</th>
                                 <th>Receipts</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${dailySalesCountHTML}
+                            ${mergedDailySalesHTML}
                         </tbody>
                     </table>
-                    ` : ''}
 
                     <div class="footer">
                         <img src="https://oucfxeezfamenmsqkgib.supabase.co/storage/v1/object/public/receiptify/appImages/Receiptify-mdpi.webp" alt="App Logo" style="height: 32px; margin-bottom: 0.5rem; display: block; margin-left: auto; margin-right: auto; border-radius: 100px" />

@@ -247,7 +247,7 @@ const PastReceipts = () => {
                             </View>
                             <View style={styles.receiptDetails}>
                                 <Text style={styles.itemsCount}>{item.items.length} items</Text>
-                                <Text style={styles.receiptTotal}>₹{item.total.toFixed(2)}</Text>
+                                <Text style={styles.receiptTotal}>₹{item?.totalAfterDiscount ? item.totalAfterDiscount.toFixed(2) : item.total.toFixed(2)}</Text>
                             </View>
                         </TouchableOpacity>
                     )}

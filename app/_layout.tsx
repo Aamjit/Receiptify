@@ -10,7 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 // Set the animation options. This is optional.
 SplashScreen.setOptions({
-  duration: 500,
+  duration: 100,
   fade: true,
 });
 
@@ -29,7 +29,6 @@ export default function RootLayout() {
             <Stack.Screen name="index" options={{ headerShown: false, }} />
             <Stack.Screen name="(screens)/IntroScreen" options={{ headerShown: false, }} />
             <Stack.Screen name="(screens)/AuthScreen" options={{ headerShown: false }} />
-            <Stack.Screen name="(screens)/OTPScreen" options={{ headerShown: false }} />
             <Stack.Screen name="(screens)/AccountSetupScreen" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(screens)/CreateReceipt" options={{

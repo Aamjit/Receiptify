@@ -41,8 +41,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
     setPhoneNumber(initialPhoneNumber);
     setWebsite(initialWebsite);
     setLogo(initialLogo || null);
-    initialLogo ? setLogoPreview(initialLogo) : setLogoPreview(null);
-  }, [visible, initialName, initialAddress, initialPanNumber, initialGstin, initialPhoneNumber, initialWebsite]);
+    setLogoPreview(initialLogo ? initialLogo : null);
+  }, [visible, initialName, initialAddress, initialPanNumber, initialGstin, initialPhoneNumber, initialWebsite, initialLogo]);
 
   const handlePickLogo = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -107,6 +107,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
 
       return imageUrl.data.publicUrl;
     } catch (e) {
+      console.log(e);
+
       Alert.alert('Error', 'Image upload failed.');
       return null;
     } finally {

@@ -14,11 +14,3 @@ export function useBottomTabOverflow() {
     style={StyleSheet.absoluteFill}
   />
 }
-
-
-const styles = StyleSheet.create({
-  container: {
-    // flex: 1,
-    backgroundColor: '#fff',
-  }
-})

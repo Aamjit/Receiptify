@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, getAuth, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, getAuth, GoogleAuthProvider, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from '@react-native-firebase/auth';
 import { collection, doc, getDocs, getFirestore, query, setDoc, where } from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
@@ -18,22 +18,13 @@ const AuthScreen = () => {
     const [confirmPasswordVisible, setConfirmPasswordVisible] = useState<boolean>(false);
     const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const router = useRouter();
-    const { setUser, User } = useAppContext()
+    const { setUser } = useAppContext()
 
     useEffect(() => {
         // Configure Google Signin
         GoogleSignin.configure({
             webClientId: process.env.EXPO_PUBLIC_CLIENT_ID // Replace with your actual web client ID from Firebase console
         });
-    }, []);
-
-    // Handle user state changes
-    function handleAuthStateChanged(user: any) {
-    }
-
-    useEffect(() => {
-        const subscriber = onAuthStateChanged(getAuth(), handleAuthStateChanged);
-        return subscriber; // unsubscribe on unmount
     }, []);
 
     const fetchUserData = async (userId: string) => {
@@ -44,6 +35,7 @@ const AuthScreen = () => {
         if (!querySnapshot.empty) {
             const userDoc = querySnapshot.docs[0];
             const userData = userDoc.data();
+
             setUser(userData)
             return userData;
         }
@@ -107,7 +99,11 @@ const AuthScreen = () => {
 
                     if (fetchUserPro) {
                         setTimeout(() => {
-                            fetchUserPro?.new ? router.navigate({ pathname: '/AccountSetupScreen' }) : router.replace({ pathname: '/home', params: { reset: 'true' } });
+                            if (fetchUserPro?.new) {
+                                router.navigate({ pathname: '/AccountSetupScreen' })
+                            } else {
+                                router.replace({ pathname: '/home', params: { reset: 'true' } });
+                            }
                         }, 1000);
                     }
                 } else {
@@ -181,6 +177,8 @@ const AuthScreen = () => {
                 return;
             }
         } catch (error: any) {
+            console.log(error);
+
             setCustomAlert({ visible: true, title: 'Authentication Error', message: 'Please check you email ID and password and try again.', actions: [{ text: 'OK', onPress: () => setCustomAlert({ ...customAlert, visible: false }) }] });
         } finally {
             setLoading({ state: false, text: "" })
