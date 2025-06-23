@@ -6,7 +6,11 @@ import { StatusBar, StyleSheet } from 'react-native';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppProvider } from '../hooks/useApp';
+import { Colors } from '@/constants/Colors';
+// import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
+import { wakeUpServer } from '@/api/wakeUpCall';
 
 // Set the animation options. This is optional.
 SplashScreen.setOptions({
@@ -16,14 +20,23 @@ SplashScreen.setOptions({
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  React.useEffect(() => {
+    // Set to your tab bar color, e.g. Colors.theme.primary
+    SystemUI.setBackgroundColorAsync(colorScheme !== 'light' ? Colors.theme.secondary : Colors.theme.primary);
+  }, [colorScheme]);
+
+  React.useEffect(() => {
+    wakeUpServer();
+  }, []);
 
   return (
     <AppProvider>
       <ThemeProvider value={colorScheme === 'light' ? DarkTheme : DefaultTheme} >
         <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
           <StatusBar
-            barStyle={colorScheme === 'light' ? 'dark-content' : 'light-content'}
-            backgroundColor={colorScheme === 'light' ? '#f8f9fa' : 'rgba(0,0,0,0.5)'} />
+            animated={true}
+            barStyle={colorScheme === 'light' ? 'dark-content' : 'dark-content'}
+            backgroundColor={colorScheme === 'light' ? Colors.theme.primary : Colors.theme.secondary} />
 
           <Stack initialRouteName='index'>
             <Stack.Screen name="index" options={{ headerShown: false, }} />

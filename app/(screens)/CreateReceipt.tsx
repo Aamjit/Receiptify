@@ -3,10 +3,11 @@ import { getAuth } from '@react-native-firebase/auth'
 import { addDoc, collection, getDocs, getFirestore, query, where, doc, updateDoc } from '@react-native-firebase/firestore'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import CustomAlertModal from '@/components/CustomAlertModal';
 import { useAppContext } from '@/hooks/useApp'
+import { Colors } from '@/constants/Colors'
 
 type InventoryItem = {
     id: string
@@ -27,27 +28,25 @@ const groupByCategory = (items: InventoryItem[]) => {
 }
 
 const CreateReceipt = () => {
+    const router = useRouter();
+    const userData = getAuth().currentUser
+    const { User, setUser, getUserData } = useAppContext();
+    // States
     const [receiptNumber, setReceiptNumber] = useState<string>('')
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
     const [receiptItems, setReceiptItems] = useState<Record<string, number>>({})
     const [discount, setDiscount] = useState<number>(0); // Discount in percentage
-    const router = useRouter();
     const [loading, setLoading] = useState({
         state: true,
-        text: "",
+        text: "Loading...",
     });
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: Array<{ text: string; onPress?: () => void; style?: any }> }>({ visible: false, title: '', message: '' });
-    const userData = getAuth().currentUser
-    const { User, setUser } = useAppContext();
-
-    useEffect(() => {
-        fetchInventory();
-    }, []);
+    const [isFooterCollapsed, setIsFooterCollapsed] = useState(true);
 
     // Use useFocusEffect to reload data when screen comes into focus
     useFocusEffect(
         React.useCallback(() => {
-            fetchInventory()
+            fetchInventory();
         }, [])
     )
 
@@ -58,16 +57,28 @@ const CreateReceipt = () => {
     }
 
     const fetchInventory = async () => {
+        setLoading({ state: true, text: "Hang on..." })
         try {
             const userEmail = getAuth().currentUser?.email;
-            if (!userEmail) {
-                console.error('User not authenticated');
-                setLoading({ state: false, text: "" });
+            if (!userEmail || userEmail.length === 0) {
+                setAlert({
+                    visible: true, title: "Error", message: "Could not fetch user data",
+                    actions: [{
+                        text: "OK",
+                        onPress: () => {
+                            setAlert({ ...alert, visible: false })
+                            router.dismiss();
+                        }
+                    }]
+                })
+                // setLoading({ state: false, text: "" });
                 return;
             }
 
+            const userData = await getUserData();
+
             // Ensure prices are converted to numbers
-            const inventory = (User?.inventory || []).map((item: any) => ({
+            const inventory = (userData?.inventory || []).map((item: any) => ({
                 ...item,
                 price: typeof item.price === 'string' ? parseFloat(item.price) : item.price
             }));
@@ -115,11 +126,8 @@ const CreateReceipt = () => {
     }
 
     const calculateDiscountTotal = () => {
-        const subtotal = Object.entries(receiptItems).reduce((total, [itemId, qty]) => {
-            const item = inventoryItems.find(i => i.id === itemId)
-            if (!item) return total
-            return total + item.price * qty
-        }, 0);
+        const subtotal = calculateTotal();
+        if (discount === 0) return subtotal;
         // Apply discount
         const discountedTotal = subtotal - (subtotal * (discount / 100));
         return discountedTotal;
@@ -150,7 +158,7 @@ const CreateReceipt = () => {
             setAlert({ visible: true, title: 'No items', message: 'Please add items to the receipt before completing.' });
             return;
         }
-        setLoading({ state: true, text: "Saving receipt" })
+        setLoading({ state: true, text: "Saving receipt..." })
 
         const db = getFirestore();
         const itemsArray = Object.entries(receiptItems).map(([itemId, qty]) => {
@@ -169,8 +177,8 @@ const CreateReceipt = () => {
             receiptNumber,
             userId: userData?.uid,
             items: itemsArray,
-            total: calculateTotal(),
-            totalAfterDiscount: calculateDiscountTotal(),
+            subtotal: calculateTotal(),
+            total: calculateDiscountTotal(),
             discount, // Save discount percentage
             status: status,
             createdAt: new Date(),
@@ -237,11 +245,18 @@ const CreateReceipt = () => {
 
     const groupedInventory = groupByCategory(inventoryItems)
 
-    return !loading.state && inventoryItems.length === 0 ? (
+    if (loading.state) {
+        return (<View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.loadingText}>{loading.text}</Text>
+        </View>)
+    }
+
+    return inventoryItems.length === 0 ? (
         <View style={styles.container}>
             <View style={styles.header}>
-                <View>
-                    <Text style={styles.headerTitle}>New Receipt</Text>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={styles.headerTitle}>Receipt</Text>
                     <Text style={styles.receiptNumber}>#{receiptNumber.padStart(3, '0')}</Text>
                 </View>
                 <TouchableOpacity
@@ -270,8 +285,8 @@ const CreateReceipt = () => {
     ) : (
         <View style={styles.container}>
             <View style={styles.header}>
-                <View>
-                    <Text style={styles.headerTitle}>New Receipt</Text>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={styles.headerTitle}>Receipt</Text>
                     <Text style={styles.receiptNumber}>#{receiptNumber.padStart(3, '0')}</Text>
                 </View>
                 <TouchableOpacity
@@ -339,7 +354,18 @@ const CreateReceipt = () => {
             />
 
             <View style={styles.footer}>
-                <View style={styles.totalContainer}>
+                {/* Collapsible butt on */}
+                <TouchableOpacity
+                    onPress={() => setIsFooterCollapsed(v => !v)}
+                    style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 16, flexDirection: 'row' }}
+                >
+                    <Ionicons name={isFooterCollapsed ? "chevron-up" : "chevron-down"} size={24} color={Colors.theme.primary} />
+                    <Text style={{ color: Colors.theme.primary, fontWeight: "600" }}>
+                        {isFooterCollapsed ? "Show Summary" : "Hide Summary"}
+                    </Text>
+                </TouchableOpacity>
+
+                {!isFooterCollapsed && <View style={styles.totalContainer}>
                     {/* Discount Area */}
                     <View>
                         <Text style={styles.totalLabel}>Discount (%)</Text>
@@ -376,23 +402,18 @@ const CreateReceipt = () => {
                             </TouchableOpacity>
                         </View>
                     </View>
+
                     <View style={{ alignItems: 'flex-end', flex: 1 }}>
-                        <View style={{ marginBottom: 6 }}>
+                        <View>
                             <Text style={styles.totalLabel}>Subtotal</Text>
                             <Text style={styles.subtotalAmount}>₹{calculateTotal().toFixed(2)}</Text>
                         </View>
-                        {/* {discount > 0 && (
-                            <View style={{ marginBottom: 6 }}>
-                                <Text style={styles.discountLabel}>Discount</Text>
-                                <Text style={styles.discountAmount}>{discount}%</Text>
-                            </View>
-                        )} */}
-                        <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 2, marginTop: 2 }}>
+                        <View>
                             <Text style={styles.totalLabel}>Total Amount</Text>
                             <Text style={styles.finalTotalAmount}>₹{calculateDiscountTotal().toFixed(2)}</Text>
                         </View>
                     </View>
-                </View>
+                </View>}
 
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
@@ -407,9 +428,25 @@ const CreateReceipt = () => {
                     >
                         <Text style={styles.saveButtonText}>Save as Active</Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                         onPress={() => {
-                            saveReceipt('complete')
+                            setAlert({
+                                visible: true,
+                                title: 'Finalize Receipt?',
+                                message: 'Are you sure you want to finalize this receipt?',
+                                actions: [{
+                                    text: "Go back",
+                                    style: "cancel",
+                                    onPress: () => setAlert({ visible: false, title: '', message: '' })
+                                }, {
+                                    text: "Finalize",
+                                    style: "default",
+                                    onPress: () => {
+                                        saveReceipt('complete')
+                                    }
+                                }]
+                            })
                         }}
                         style={[
                             styles.saveButton,
@@ -439,13 +476,18 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f8f9fa',
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+    },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'ios' ? 50 : 20,
-        paddingBottom: 20,
+        paddingVertical: 20,
         backgroundColor: '#fff',
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
@@ -454,12 +496,12 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '700',
         color: '#1a1a1a',
-        marginBottom: 4,
     },
     receiptNumber: {
         fontSize: 15,
         color: '#666',
         fontWeight: '500',
+        marginLeft: 6,
     },
     closeButton: {
         padding: 8,
@@ -549,11 +591,11 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#eee',
         paddingHorizontal: 20,
-        paddingTop: 16,
+        paddingTop: 8,
         paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     },
     totalContainer: {
-        marginBottom: 16,
+        marginBottom: 8,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',

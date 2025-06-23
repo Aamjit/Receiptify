@@ -7,7 +7,7 @@ import { ActivityIndicator, FlatList, Modal, Platform, ScrollView, StyleSheet, T
 import DatePicker from '../components/DatePicker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { generateHTMLForReceipt } from '../../helpers/generateHTMLForReceipt';
+import { generateHTMLForReceipt } from '../../utils/generateHTMLForReceipt';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
 type ReceiptItem = {
@@ -21,7 +21,7 @@ type PastReceipt = {
     receiptNumber: string
     date: string
     total: number
-    totalAfterDiscount: number
+    subtotal: number
     discount?: number // Add discount field
     items: ReceiptItem[]
     timestamp?: number | null
@@ -32,7 +32,7 @@ const PastReceipts = () => {
     const [selectedReceipt, setSelectedReceipt] = useState<PastReceipt | null>(null)
     const [pastReceipts, setPastReceipts] = useState<PastReceipt[]>([])
     const [selectedDate, setSelectedDate] = useState(new Date())
-    const [isLoading, setIsLoading] = useState({ state: false, message: '' })
+    const [isLoading, setIsLoading] = useState({ state: false, message: 'Loading...' })
     const [userData, setUserData] = useState<any>(null)
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const router = useRouter()
@@ -82,7 +82,7 @@ const PastReceipts = () => {
                         receiptNumber: data.receiptNumber,
                         date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : '',
                         total: data.total,
-                        totalAfterDiscount: data.totalAfterDiscount,
+                        subtotal: data.subtotal,
                         discount: data.discount || 0, // Add discount
                         items: data.items,
                         timestamp: data.timestamp || null,
@@ -92,7 +92,14 @@ const PastReceipts = () => {
                 receiptsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
                 setPastReceipts(receiptsData)
             } catch (error) {
-                setAlert({ visible: true, title: 'Error', message: 'Failed to fetch past receipts.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
+                setAlert({
+                    visible: true, title: 'Error', message: 'Failed to fetch completed receipts.', actions: [{
+                        text: 'OK', onPress: () => {
+                            router.dismiss();
+                            setAlert({ ...alert, visible: false })
+                        }
+                    }]
+                });
                 console.error('Error fetching past receipts:', error)
             } finally {
                 setTimeout(() => {
@@ -129,7 +136,7 @@ const PastReceipts = () => {
                 items: selectedReceipt.items,
                 total: selectedReceipt.total,
                 discount: selectedReceipt.discount || 0, // Pass discount to HTML generator
-                totalAfterDiscount: selectedReceipt.totalAfterDiscount, // Pass totalAfterDiscount to HTML generator
+                // subtotal: selectedReceipt.subtotal, // Pass subtotal to HTML generator
                 businessInfo: {
                     name: userData?.name || "Partnered with Receiptify",
                     address: userData?.address,
@@ -247,7 +254,7 @@ const PastReceipts = () => {
                             </View>
                             <View style={styles.receiptDetails}>
                                 <Text style={styles.itemsCount}>{item.items.length} items</Text>
-                                <Text style={styles.receiptTotal}>₹{item?.totalAfterDiscount ? item.totalAfterDiscount.toFixed(2) : item.total.toFixed(2)}</Text>
+                                <Text style={styles.receiptTotal}>₹{item.total.toFixed(2)}</Text>
                             </View>
                         </TouchableOpacity>
                     )}
@@ -313,7 +320,7 @@ const PastReceipts = () => {
                                 <View style={styles.totalSection}>
                                     <View style={{ marginBottom: 6 }}>
                                         <Text style={styles.totalLabel}>Subtotal</Text>
-                                        <Text style={styles.subtotalAmount}>₹{selectedReceipt.total ? selectedReceipt.total.toFixed(2) : '0.00'}</Text>
+                                        <Text style={styles.subtotalAmount}>₹{selectedReceipt.subtotal.toFixed(2)}</Text>
                                     </View>
                                     <View style={{ marginBottom: 6 }}>
                                         <Text style={styles.discountLabel}>Discount</Text>
@@ -321,7 +328,7 @@ const PastReceipts = () => {
                                     </View>
                                     <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 8, marginTop: 2 }}>
                                         <Text style={styles.totalLabel}>Total Amount</Text>
-                                        <Text style={styles.finalTotalAmount}>₹{selectedReceipt.totalAfterDiscount ? selectedReceipt.totalAfterDiscount.toFixed(2) : selectedReceipt.total.toFixed(2)}</Text>
+                                        <Text style={styles.finalTotalAmount}>₹{selectedReceipt.total.toFixed(2)}</Text>
                                     </View>
                                 </View>
                             </ScrollView>

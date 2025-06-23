@@ -6,12 +6,13 @@ package-lock.json*
 google-services*.json*
 
 # Expo
-.expo/
+.expo*/
 .vscode/
 dist/
 web-build/
 android/
 expo-env.d.ts
+.expo-shared/
 
 # Native
 .kotlin/

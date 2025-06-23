@@ -77,6 +77,8 @@ export default function Index() {
     if (introSeen === null) return null;
 
     return <Redirect href={introSeen !== "true" ? "/(screens)/IntroScreen" : !getAuth().currentUser?.emailVerified ? "/(screens)/AuthScreen" : User?.new ? "/AccountSetupScreen" : "/home"} />;
+
+    // return <Redirect href={"/home"} />
 }
 
 const styles = StyleSheet.create({

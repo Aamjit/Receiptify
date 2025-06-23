@@ -1,18 +1,18 @@
 import { getAuth } from "@react-native-firebase/auth";
 
-interface EmailSendBodyType {
-    name: string,
-    to: string[],
-    subject: string,
-    text: string,
-    html: string
-}
-
-export async function sendEmail(data: EmailSendBodyType, headers: Record<string, string> = {}) {
+export const generateReportData = async (userId: string, fromDate: Date, toDate: Date): Promise<any> => {
     const appId = process.env.EXPO_PUBLIC_APP_ID ?? '';
-    const domain = process.env.EXPO_PUBLIC_SERVER ?? '';
     const token = await getAuth().currentUser?.getIdToken();
-    const response = await fetch(domain + "/send-email", {
+    let data;
+    data = {
+        "userId": userId,
+        "fromDate": fromDate,
+        "toDate": toDate
+    }
+
+    const domain = process.env.EXPO_PUBLIC_SERVER ?? '';
+
+    const response = await fetch(domain + "/generate-report-data", {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -21,6 +21,7 @@ export async function sendEmail(data: EmailSendBodyType, headers: Record<string,
         },
         body: JSON.stringify(data),
     });
+
     if (!response.ok) {
         let errorText = '';
         try {
@@ -35,5 +36,8 @@ export async function sendEmail(data: EmailSendBodyType, headers: Record<string,
         }
         throw new Error(`API Error: ${errorText}`);
     }
-    return response.json();
+
+    let res = await response.json();
+
+    return res;
 }

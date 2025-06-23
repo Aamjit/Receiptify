@@ -6,13 +6,13 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Image, Platform, StyleSheet } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { User } = useAppContext()
   const isDark = colorScheme === 'dark';
-  const tabBarHeight = Platform.OS === 'android' ? 70 : 64;
+  const tabBarHeight = Platform.OS === 'android' ? 54 : 64;
 
   return (
     <Tabs
@@ -22,12 +22,12 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: () => (
-          <BlurView
-            tint={isDark ? 'dark' : 'light'}
+          <View
+            // tint={isDark ? 'dark' : 'light'}
             style={[
               StyleSheet.absoluteFillObject,
               styles.tabBarBackground,
-              { backgroundColor: isDark ? 'rgba(43, 43, 43, 0.5)' : 'rgba(255,255,255,0.7)' }
+              { backgroundColor: isDark ? Colors.theme.secondary : Colors.theme.primary }
             ]}
           />
         ),
@@ -41,23 +41,11 @@ export default function TabLayout() {
         },
         tabBarStyle: {
           height: tabBarHeight,
-          elevation: 0,
-          backgroundColor: 'transparent',
           position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          borderTopColor: 'transparent',
+          backgroundColor: isDark ? Colors.theme.secondary : Colors.theme.primary,
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          shadowColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.1)',
-          shadowRadius: 20,
-          shadowOpacity: 0.1,
           borderTopWidth: 0,
-          shadowOffset: {
-            width: 20,
-            height: -4,
-          },
         },
         tabBarItemStyle: {
           paddingVertical: 0,
@@ -67,21 +55,20 @@ export default function TabLayout() {
         tabBarIconStyle: {
           marginTop: 4,
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-          insetBlock: 2,
-        },
       }}>
       <Tabs.Screen
         name="home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
+          tabBarShowLabel: false,
+          tabBarLabel: ({ children, focused }) => {
+            return <Text style={[styles.tabBarLabelStyle, focused ? styles.activeIcon : styles.icon]}>{children}</Text>
+          },
+          tabBarIcon: ({ focused }) => (
             <IconSymbol
               size={30}
               name={"house.fill"}
-              color={color}
+              color={"#fbfbfb"}
               style={[focused ? styles.activeIcon : styles.icon]}
             />
           ),
@@ -92,6 +79,10 @@ export default function TabLayout() {
         name="account"
         options={{
           title: 'Profile',
+          tabBarShowLabel: false,
+          tabBarLabel: ({ children, focused }) => {
+            return <Text style={[styles.tabBarLabelStyle, focused ? styles.activeIcon : styles.icon]}>{children}</Text>
+          },
           tabBarIcon: ({ color, focused }) => {
             return User?.businessLogo.length > 0 ? <Image
               source={{ uri: User?.businessLogo }}
@@ -102,7 +93,7 @@ export default function TabLayout() {
               <IconSymbol
                 size={30}
                 name={"person.crop.circle"}
-                color={color}
+                color={"#fbfbfb"}
                 style={[focused ? styles.activeIcon : styles.icon]}
               />
           },
@@ -114,37 +105,22 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBarBackground: {
-    padding: 0,
-    margin: 0,
-    backgroundColor: 'transparent',
+    borderTopWidth: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    overflow: 'hidden',
-    shadowColor: 'rgba(53, 53, 53, 0.1)',
-    shadowRadius: 20,
-    shadowOpacity: 0.1,
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    elevation: 0,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000, // Ensure it appears above other content
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
   },
   icon: {
-    opacity: 0.8,
+    opacity: 0.5,
     transform: [{ scale: 1 }],
   },
   activeIcon: {
     opacity: 1,
     transform: [{ scale: 1.2 }],
   },
+  tabBarLabelStyle: {
+    fontSize: 12,
+    fontWeight: '500',
+    insetBlock: 2,
+    color: "#fbfbfb",
+  }
 });

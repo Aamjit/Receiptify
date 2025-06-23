@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Dimensions } from 'react-native';
-import { getAuth } from '@react-native-firebase/auth';
-import { collection, query, where, getDocs, getFirestore, Timestamp } from '@react-native-firebase/firestore';
 import { LineChart } from "react-native-chart-kit";
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { generateHTMLForReport } from '../../helpers/generateHTMLForReport';
+import { generateHTMLForReport } from '../../utils/generateHTMLForReport';
 import DateRangePicker from '../components/DateRangePicker';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useAppContext } from '@/hooks/useApp';
 import { sendEmail } from '@/api/sendEmail';
 import minifier from '@/utils/minifier';
+import { generateReportData } from '@/api/serverApis';
 
 type ReceiptItem = {
     id: string;
@@ -24,7 +23,7 @@ type Receipt = {
     receiptNumber: string
     date: string
     total: number
-    totalAfterDiscount?: number
+    subtotal?: number
     discount?: number // Add discount field
     items: ReceiptItem[]
     timestamp?: number | null
@@ -91,7 +90,7 @@ const dateRanges: DateRange[] = [
 // 12. Discount / Promotion Effectiveness(if discounts are tracked) Sales uplift during promotions. Most effective discount types.
 
 export default function Report() {
-    const [receipts, setReceipts] = useState<Receipt[]>([]);
+    // const [receipts, setReceipts] = useState<Receipt[]>([]);
     const [loading, setLoading] = useState({ state: false, message: '' });
     const [selectedRange, setSelectedRange] = useState<DateRange>(dateRanges[0]); // Default to Last 30 Days
     const [totalSales, setTotalSales] = useState(0);
@@ -104,123 +103,44 @@ export default function Report() {
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [receiptsHeatmap, setReceiptsHeatmap] = useState<{ day: string; hour: number; count: number }[]>([]);
 
+
+    useEffect(() => {
+        fetchReceipts();
+    }, [selectedRange]);
+
     const fetchReceipts = async () => {
         try {
-            setLoading({ state: true, message: 'Fetching data...' });
+            setLoading({ state: true, message: 'Fetching data...\nThis might take while if the server is sleeping.' });
 
-            // Set start of day
-            const startOfDay = new Date(selectedRange.startDate);
-            startOfDay.setHours(0, 0, 0, 0);
+            const report = await generateReportData(User?.userId, selectedRange.startDate, selectedRange.endDate);
 
-            // Set end of day
-            const endOfDay = new Date(selectedRange.endDate);
-            endOfDay.setHours(23, 59, 59, 999);
-
-            const db = getFirestore();
-            const receiptsRef = collection(db, 'Receipts');
-            const q = query(
-                receiptsRef,
-                where('userId', '==', getAuth().currentUser?.uid),
-                where('status', '==', 'complete'),
-                where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
-                where('createdAt', '<=', Timestamp.fromDate(endOfDay))
-            );
-
-            // console.log(Timestamp.fromDate(startOfDay), Timestamp.fromDate(endOfDay));
-
-
-            const querySnapshot = await getDocs(q);
-            const receiptsData: Receipt[] = [];
-            querySnapshot.forEach(doc => {
-                const data = doc.data();
-                receiptsData.push({
-                    id: doc.id,
-                    receiptNumber: data.receiptNumber,
-                    date: new Date(data.timestamp).toISOString().split('T')[0],
-                    total: data.total,
-                    items: data.items,
-                    timestamp: data.timestamp,
-                    status: data.status,
-                });
-            });
-
-            setReceipts(receiptsData);
-            processData(receiptsData);
+            populateData(report);
         } catch (error) {
             console.error('Error fetching receipts:', error);
         } finally {
-            setLoading({ state: false, message: '' });
+            setTimeout(() => {
+                setLoading({ state: false, message: '' });
+            }, 1000);
         }
     };
 
-    const processData = (receiptsData: Receipt[]) => {
+    const populateData = (report: any) => {
         // Calculate total sales
-        const total = receiptsData.reduce((sum, receipt) => sum + receipt.total, 0);
-        // console.log(total);
-
-        setTotalSales(total);
+        setTotalSales(report?.totalSales);
 
         // Calculate average transaction
-        setAverageTransaction(total / (receiptsData.length || 1));
+        setAverageTransaction(report?.averageTransaction);
 
         // Process top selling items
-        const itemsMap = new Map<string, { quantity: number; revenue: number }>();
-        receiptsData.forEach(receipt => {
-            receipt.items.forEach(item => {
-                const existing = itemsMap.get(item.name) || { quantity: 0, revenue: 0 };
-                itemsMap.set(item.name, {
-                    quantity: existing.quantity + item.quantity,
-                    revenue: existing.revenue + (item.price * item.quantity)
-                });
-            });
-        });
-
-        const topItemsArray = Array.from(itemsMap.entries())
-            .map(([name, data]) => ({ name, ...data }))
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 5);
-
-        setTopItems(topItemsArray);
+        setTopItems(report?.topItems);
 
         // Process daily sales
-        const salesByDate = new Map<string, number>();
-        const salesCountByDate = new Map<string, number>();
-        receiptsData.forEach(receipt => {
-            const date = receipt.date;
-            salesByDate.set(date, (salesByDate.get(date) || 0) + receipt.total);
-            salesCountByDate.set(date, (salesCountByDate.get(date) || 0) + 1);
-        });
-
-        const dailySalesArray = Array.from(salesByDate.entries())
-            .map(([date, total]) => ({ date, total }))
-            .sort((a, b) => a.date.localeCompare(b.date));
-        setDailySales(dailySalesArray);
-
-        const dailySalesCountArray = Array.from(salesCountByDate.entries())
-            .map(([date, count]) => ({ date, count }))
-            .sort((a, b) => a.date.localeCompare(b.date));
-        setDailySalesCount(dailySalesCountArray);
+        setDailySales(report?.dailySales);
+        setDailySalesCount(report?.dailySalesCountArray);
 
         // Receipts Heatmap: Count receipts by day of week and hour
-        const heatmapMap = new Map<string, Map<number, number>>(); // day -> hour -> count
-        receiptsData.forEach(receipt => {
-            if (receipt.timestamp) {
-                const dateObj = new Date(receipt.timestamp);
-                const day = dateObj.toLocaleDateString('en-US', { weekday: 'short' }); // e.g., 'Mon'
-                const hour = dateObj.getHours();
-                if (!heatmapMap.has(day)) heatmapMap.set(day, new Map());
-                const hourMap = heatmapMap.get(day)!;
-                hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
-            }
-        });
-        const heatmapArray: { day: string; hour: number; count: number }[] = [];
-        Array.from(heatmapMap.entries()).forEach(([day, hourMap]) => {
-            Array.from(hourMap.entries()).forEach(([hour, count]) => {
-                heatmapArray.push({ day, hour, count });
-            });
-        });
-        setReceiptsHeatmap(heatmapArray);
-    };
+        setReceiptsHeatmap(report?.heatMap);
+    }
 
     const generateHTML = () => {
 
@@ -233,16 +153,6 @@ export default function Report() {
             website: User?.website,
             logo: User?.businessLogo, // Use your logo asset here
         };
-
-        // console.log({
-        //     selectedRangeLabel: `From Date: ${selectedRange.startDate.toLocaleDateString()}<br> To Date: ${selectedRange.endDate.toLocaleDateString()}`,
-        //     totalSales,
-        //     averageTransaction,
-        //     topItems,
-        //     dailySales,
-        //     dailySalesCount,
-        //     businessInfo,
-        // });
 
         return generateHTMLForReport({
             selectedRangeLabel: `From Date: ${selectedRange.startDate.toLocaleDateString()}<br> To Date: ${selectedRange.endDate.toLocaleDateString()}`,
@@ -275,10 +185,10 @@ export default function Report() {
 
     const handleDownloadReport = async () => {
 
-        if (receipts?.length <= 0) {
-            setAlert({ visible: true, title: 'Error', message: 'No receipt data available', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
-            return
-        }
+        // if (receipts?.length <= 0) {
+        //     setAlert({ visible: true, title: 'Error', message: 'No receipt data available', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
+        //     return
+        // }
 
         setLoading({ state: true, message: 'Generating PDF...' });
         try {
@@ -301,11 +211,6 @@ export default function Report() {
     };
 
     const sendReportEmail = async () => {
-
-        if (receipts?.length <= 0) {
-            setAlert({ visible: true, title: 'Error', message: 'No receipt data available', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
-            return
-        }
 
         if (!User?.email) {
             setAlert({ visible: true, title: 'Error', message: 'No user email found.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
@@ -335,15 +240,11 @@ export default function Report() {
         }
     };
 
-    useEffect(() => {
-        fetchReceipts();
-    }, [selectedRange]);
-
     if (loading.state) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#2196F3" />
-                <Text style={{ marginTop: 10, color: '#666666' }}>{loading.message}</Text>
+                <Text style={{ marginTop: 10, color: '#666666', textAlign: 'center' }}>{loading.message}</Text>
             </View>
         );
     }
