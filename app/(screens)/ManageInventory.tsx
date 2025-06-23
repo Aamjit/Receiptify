@@ -5,6 +5,8 @@ import { collection, doc, getDocs, getFirestore, query, updateDoc, where } from 
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { useAppContext } from '@/hooks/useApp';
+import { useRouter } from 'expo-router';
 
 interface InventoryItem {
     id: string;
@@ -35,6 +37,8 @@ const ManageInventory = () => {
     const lastScrollY = useRef(0);
     const scrollThreshold = 10; // minimum scroll distance to trigger collapse
     const scrollViewRef = useRef<ScrollView>(null);
+    const { User, setUser, getUserData } = useAppContext();
+    const router = useRouter();
 
     useEffect(() => {
         fetchInventory();
@@ -44,18 +48,19 @@ const ManageInventory = () => {
         try {
             const userEmail = getAuth().currentUser?.email;
             if (!userEmail) {
-                setAlert({ visible: true, title: 'Error', message: 'User not authenticated', actions: [{ text: 'OK' }] });
+                setAlert({
+                    visible: true, title: 'Error', message: 'Could not fetch user info', actions: [{
+                        text: 'OK', onPress: () => {
+                            setAlert({ ...alert, visible: false })
+                            router.dismiss();
+                        }
+                    }]
+                });
                 return;
             }
 
-            const userQuery = await getDocs(
-                query(collection(getFirestore(), 'Users'),
-                    where('email', '==', userEmail))
-            );
-
-            if (!userQuery.empty) {
-                const userData = userQuery.docs[0].data();
-                setInventory(userData.inventory || []);
+            if (User) {
+                setInventory(User.inventory || []);
             }
             setTimeout(() => {
                 setLoading(false);
@@ -84,12 +89,16 @@ const ManageInventory = () => {
                 await updateDoc(doc(getFirestore(), 'Users', userQuery.docs[0].id), {
                     inventory: newInventory
                 });
+
+                setUser({ ...User, inventory: newInventory })
             } else {
                 setAlert({ visible: true, title: 'Error', message: 'User document not found', actions: [{ text: 'OK' }] });
             }
         } catch (error) {
             console.error('Error updating inventory:', error);
             setAlert({ visible: true, title: 'Error', message: 'Failed to update inventory', actions: [{ text: 'OK' }] });
+        } finally {
+            await getUserData();
         }
     };
 
@@ -254,17 +263,6 @@ const ManageInventory = () => {
             </View>
         </View>
     );
-
-    // if (loading) {
-    //     return (
-    //         <View style={styles.container}>
-    //             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    //                 <Ionicons name="cube-outline" size={64} color="#94a3b8" />
-    //                 <Text style={styles.loadingText}>Loading inventory...</Text>
-    //             </View>
-    //         </View>
-    //     );
-    // }
 
     // Extract unique categories for autocomplete
     const categoryOptions = Array.from(new Set(inventory.map(item => item.category).filter(Boolean)));
@@ -503,7 +501,7 @@ const ManageInventory = () => {
                                             setShowCategoryModal(false);
                                         }}
                                     >
-                                        <Text style={styles.modalOptionText}>+ Add "{categoryQuery}"</Text>
+                                        <Text style={styles.modalOptionText}>+ Add &quot;{categoryQuery}&quot;</Text>
                                     </TouchableOpacity>
                                 )}
                         </ScrollView>

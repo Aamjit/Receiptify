@@ -29,6 +29,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
   const [logo, setLogo] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isLogoChanged, setIsLogoChanged] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState({ state: false, text: '' })
 
   // Reset fields when modal opens
   React.useEffect(() => {
@@ -39,8 +41,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
     setPhoneNumber(initialPhoneNumber);
     setWebsite(initialWebsite);
     setLogo(initialLogo || null);
-    initialLogo ? setLogoPreview(initialLogo) : setLogoPreview(null);
-  }, [visible, initialName, initialAddress, initialPanNumber, initialGstin, initialPhoneNumber, initialWebsite]);
+    setLogoPreview(initialLogo ? initialLogo : null);
+  }, [visible, initialName, initialAddress, initialPanNumber, initialGstin, initialPhoneNumber, initialWebsite, initialLogo]);
 
   const handlePickLogo = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -63,6 +65,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
       );
       setLogoPreview(compressed.uri);
       setLogo(compressed.uri);
+      setIsLogoChanged(true)
     }
   };
 
@@ -104,9 +107,12 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
 
       return imageUrl.data.publicUrl;
     } catch (e) {
+      console.log(e);
+
       Alert.alert('Error', 'Image upload failed.');
       return null;
     } finally {
+      setIsLoading({ state: false, text: "" })
       setLogo(null);
       setLogoUploading(false);
     }
@@ -114,8 +120,9 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
 
   const handleSave = async () => {
     let logoUrl = logoPreview;
-    if (logo) {
+    if (isLogoChanged && logo) {
       // Pass the previous logo URL for deletion if needed
+      setIsLoading({ state: true, text: "Uploading logo..." })
       logoUrl = await handleUploadLogo(logoPreview || initialLogo || undefined);
     }
     onSave(name, address, panNumber, gstin, phoneNumber, website, logoUrl || undefined);
@@ -128,6 +135,12 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ userId, visible, in
       transparent
       onRequestClose={onCancel}
     >
+      {isLoading.state && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.15)', zIndex: 999, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <Text style={{ marginTop: 12, color: '#3b82f6', fontWeight: '600', fontSize: 16 }}>{isLoading.text}</Text>
+        </View>
+      )}
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <ScrollView contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>

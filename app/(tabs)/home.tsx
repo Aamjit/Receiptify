@@ -2,9 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Dimensions, FlatList, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Platform, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '@/constants/Colors';
 
 interface Feature {
     key: string;
@@ -29,10 +30,10 @@ const screenWidth = Dimensions.get('window').width;
 const padding = 20;
 const gap = 16;
 const itemWidth = (screenWidth - (padding * 2) - gap) / numColumns; // Account for padding and gap
-const statusBarHeight = Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 10;
 
 const HomeScreen: React.FC = () => {
     const router = useRouter();
+    const colorScheme = useColorScheme();
     const insets = useSafeAreaInsets();
     const [alert, setAlert] = React.useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
 
@@ -103,7 +104,10 @@ const HomeScreen: React.FC = () => {
     }
 
     return (
-        <View style={[styles.container, { paddingTop: Platform.OS == 'android' ? insets.top | 0 : insets.top }]}>
+        <View style={[styles.container, {
+            paddingTop: Platform.OS === 'android' ? insets.top | 0 : insets.top,
+            backgroundColor: "#f8f9fa"
+        }]}>
             <View style={styles.header}>
                 <Text style={styles.welcomeText}>Welcome back!</Text>
                 <Text style={styles.subText}>What would you like to do today?</Text>
@@ -131,7 +135,7 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        // backgroundColor: '#f8f9fa',
         paddingHorizontal: padding,
     },
     header: {

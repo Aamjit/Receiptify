@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import Avatar from '@/components/Avatar';
 import { supabase } from '@/lib/supabase';
 import { ImagePickerAsset } from 'expo-image-picker'
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, StatusBar, ToastAndroid } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, StatusBar, ToastAndroid } from 'react-native';
 import CustomAlertModal from '@/components/CustomAlertModal';
 import { useAppContext } from '@/hooks/useApp';
 

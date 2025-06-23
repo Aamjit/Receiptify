@@ -16,22 +16,22 @@ const features = [
     {
         icon: 'archive' as const,
         title: 'Inventory Management',
-        description: 'Add, edit, or delete inventory items. The form scrolls into view for easy access.'
+        description: 'Add, edit, or delete inventory items. Use the “Manage Inventory” button on the Home screen to quickly access and update your product list.'
     },
     {
         icon: 'file-text' as const,
         title: 'Receipt Creation & Management',
-        description: 'Create receipts for sales, auto-generate receipt numbers, and manage active or past receipts.'
+        description: 'Tap “Create Receipt” on the Home screen to start a new sale. Enter items quantity, apply discounts.\nManage ongoing and past receipts from the Home screen. Save the receipt to edit it furhter, finalize a receipt to mark it as completed.'
     },
     {
         icon: 'share-square' as const,
         title: 'Export & Share',
-        description: 'Export receipts and reports as PDF files. Share them via email or other apps.'
+        description: 'Export receipts and reports as PDF files. Share them via email or other apps directly from the Home or Report screens.'
     },
     {
         icon: 'line-chart' as const,
         title: 'Analytics & Reports',
-        description: 'View sales trends, sales count, and top items. Filter analytics by date and export reports.'
+        description: 'Tap “Reports” on the Home screen to view sales trends, sales count, and top items. Filter analytics by date and export reports.'
     },
     {
         icon: 'bar-chart' as const,

@@ -13,14 +13,14 @@ function SplashScreen() {
         Animated.timing(fadeAnim, {
             toValue: 0,
             duration: 600,
-            delay: 2400, // Start fading after 2.4s, finish at 3s
+            delay: 1400, // Start fading after 2.4s, finish at 3s
             useNativeDriver: true,
         }).start();
     }, [fadeAnim]);
 
     return (
         <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]}>
-            <Image source={require('@/assets/images/Receiptify.webp')} style={styles.splashIcon} resizeMode="contain" />
+            <Image source={require('@/assets/images/receiptify-icon.png')} style={styles.splashIcon} resizeMode="contain" />
         </Animated.View>
     );
 }
@@ -32,22 +32,22 @@ export default function Index() {
     const { User, setUser } = useAppContext()
 
     useEffect(() => {
-        const timer = setTimeout(() => setShowSplash(false), 3000);
+        const timer = setTimeout(() => setShowSplash(false), 2000);
         return () => clearTimeout(timer);
-    }, []);
+    });
 
     useEffect(() => {
         const checkIntro = async () => {
             try {
                 const introSeen = await AsyncStorageIntro.getItem()
-                introSeen ? setIntroSeen(introSeen) : setIntroSeen("false")
+                setIntroSeen(introSeen ? introSeen : "false")
             } catch (error) {
                 console.error("Error reading intro seen status:", error);
                 setIntroSeen("false");
             }
         };
 
-        (Platform.OS == 'android' || Platform.OS == 'ios') && checkIntro();
+        (Platform.OS === 'android' || Platform.OS === 'ios') && checkIntro();
 
         const fetchUser = async () => {
             try {
@@ -77,18 +77,20 @@ export default function Index() {
     if (introSeen === null) return null;
 
     return <Redirect href={introSeen !== "true" ? "/(screens)/IntroScreen" : !getAuth().currentUser?.emailVerified ? "/(screens)/AuthScreen" : User?.new ? "/AccountSetupScreen" : "/home"} />;
+
+    // return <Redirect href={"/home"} />
 }
 
 const styles = StyleSheet.create({
     splashContainer: {
         flex: 1,
-        backgroundColor: '#fbfafd',
+        backgroundColor: '#fbfbfb',
         justifyContent: 'center',
         alignItems: 'center',
     },
     splashIcon: {
-        width: 360,
-        height: 360,
+        width: 480,
+        height: 480,
     },
     splashText: {
         fontSize: 28,

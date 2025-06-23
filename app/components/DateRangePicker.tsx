@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 interface DateRangePickerProps {
@@ -41,7 +41,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         } else if (showEndPicker) {
             setSelectedMonthYear(new Date(endDate.getFullYear(), endDate.getMonth(), 1));
         }
-    }, [showStartPicker, showEndPicker]);
+    }, [showStartPicker, showEndPicker, startDate, endDate]);
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-US', {
@@ -136,7 +136,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         const rangeInDays = Math.ceil((newEndDate.getTime() - newStartDate.getTime()) / (1000 * 3600 * 24));
 
         if (rangeInDays > propMaxRangeNumberOfDays) {
-            onError?.(`Cannot select a range longer than ${propMaxRangeNumberOfDays} days`);
+            onError?.(`Your account is restricted to range selection of ${propMaxRangeNumberOfDays} days`);
             return false;
         }
         return true;

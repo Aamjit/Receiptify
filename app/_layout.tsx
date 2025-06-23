@@ -1,38 +1,47 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React from 'react';
 import 'react-native-reanimated';
-import { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar, StyleSheet } from 'react-native';
-import { AppContext } from '../hooks/useApp';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppProvider } from '../hooks/useApp';
+import { Colors } from '@/constants/Colors';
+// import * as NavigationBar from 'expo-navigation-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
+import { wakeUpServer } from '@/api/wakeUpCall';
+
+// Set the animation options. This is optional.
+SplashScreen.setOptions({
+  duration: 100,
+  fade: true,
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-  // if (!loaded || hasSeenIntro === null) {
-  //   // Async font loading or AsyncStorage check only occurs in development.
-  //   return null;
-  // }
+  React.useEffect(() => {
+    // Set to your tab bar color, e.g. Colors.theme.primary
+    SystemUI.setBackgroundColorAsync(colorScheme !== 'light' ? Colors.theme.secondary : Colors.theme.primary);
+  }, [colorScheme]);
+
+  React.useEffect(() => {
+    wakeUpServer();
+  }, []);
 
   return (
     <AppProvider>
       <ThemeProvider value={colorScheme === 'light' ? DarkTheme : DefaultTheme} >
         <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
           <StatusBar
-            barStyle={colorScheme === 'light' ? 'dark-content' : 'light-content'}
-            backgroundColor={colorScheme === 'light' ? '#f8f9fa' : 'rgba(0,0,0,0.5)'} />
+            animated={true}
+            barStyle={colorScheme === 'light' ? 'dark-content' : 'dark-content'}
+            backgroundColor={colorScheme === 'light' ? Colors.theme.primary : Colors.theme.secondary} />
 
           <Stack initialRouteName='index'>
             <Stack.Screen name="index" options={{ headerShown: false, }} />
             <Stack.Screen name="(screens)/IntroScreen" options={{ headerShown: false, }} />
             <Stack.Screen name="(screens)/AuthScreen" options={{ headerShown: false }} />
-            <Stack.Screen name="(screens)/OTPScreen" options={{ headerShown: false }} />
             <Stack.Screen name="(screens)/AccountSetupScreen" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(screens)/CreateReceipt" options={{

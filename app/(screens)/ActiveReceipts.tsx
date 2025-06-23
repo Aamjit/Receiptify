@@ -3,8 +3,8 @@ import { getAuth } from '@react-native-firebase/auth';
 import { collection, doc, getDocs, getFirestore, query, updateDoc, where } from '@react-native-firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import CustomDropdown from '../components/CustomDropdown';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
@@ -20,7 +20,7 @@ type ActiveReceipt = {
     receiptNumber: string
     date: string
     total: number
-    totalAfterDiscount?: number
+    subtotal?: number
     discount?: number // Add discount field
     items: ReceiptItem[]
     timestamp?: number | null
@@ -32,22 +32,21 @@ const ActiveReceipts = () => {
     const [items, setItems] = useState<ReceiptItem[]>([])
     const [activeReceipts, setActiveReceipts] = useState<ActiveReceipt[]>([])
     const [newItemName, setNewItemName] = useState('')
-    const [newItemPrice, setNewItemPrice] = useState('')
+    const [newItemPrice, setNewItemPrice] = useState('');
+    const [isLoading, setIsLoading] = useState({ state: true, message: 'Loading Active Receipts...' })
 
     // New state for inventory items
     const [inventoryItems, setInventoryItems] = useState<{ id: string; name: string; price: number }[]>([])
     const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string>('')
 
-    // State for custom dropdown visibility
-    const [dropdownVisible, setDropdownVisible] = useState(false)
-
     const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; actions?: any[] }>({ visible: false, title: '', message: '', actions: [] });
     const [pendingDelete, setPendingDelete] = useState<{ id: string; receiptNumber: string } | null>(null);
     const [discount, setDiscount] = useState<number>(0); // Discount in percentage for editing
 
-    const router = useRouter()
+    const router = useRouter();
 
     const fetchActiveReceipts = async () => {
+        // setAlert({ visible: true, title: "", message: "" })
         try {
             const db = getFirestore()
             const receiptsRef = collection(db, 'Receipts')
@@ -65,7 +64,7 @@ const ActiveReceipts = () => {
                     receiptNumber: data.receiptNumber,
                     date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : '',
                     total: data.total,
-                    totalAfterDiscount: data.totalAfterDiscount,
+                    subtotal: data.subtotal,
                     discount: data.discount || 0, // Default to 0 if not set
                     items: data.items,
                     timestamp: data.timestamp,
@@ -79,7 +78,14 @@ const ActiveReceipts = () => {
             })
             setActiveReceipts(receiptsData)
         } catch (error) {
-            setAlert({ visible: true, title: 'Error', message: 'Failed to fetch active receipts.', actions: [{ text: 'OK' }] });
+            setAlert({
+                visible: true, title: 'Error', message: 'Failed to fetch active receipts.', actions: [{
+                    text: 'OK', onPress: () => {
+                        router.dismiss();
+                        setAlert({ ...alert, visible: false })
+                    }
+                }]
+            });
             console.error('Error fetching active receipts:', error)
         }
     }
@@ -91,8 +97,10 @@ const ActiveReceipts = () => {
     // Use useFocusEffect to reload data when screen comes into focus
     useFocusEffect(
         React.useCallback(() => {
-            fetchActiveReceipts()
-            fetchInventoryItems()
+            Promise.all([
+                fetchActiveReceipts(),
+                fetchInventoryItems()
+            ]).finally(() => setTimeout(() => setIsLoading({ ...isLoading, state: false, }), 500))
         }, [])
     )
 
@@ -166,6 +174,7 @@ const ActiveReceipts = () => {
 
     const calculateTotal = () => {
         const subtotal = calculateSubtotal();
+        if (discount === 0) return subtotal;
         const discountedTotal = subtotal - (subtotal * (discount / 100));
         return discountedTotal;
     }
@@ -179,20 +188,20 @@ const ActiveReceipts = () => {
             try {
                 await updateDoc(receiptRef, {
                     items: items,
-                    total: updatedSubtotal, // Save subtotal (without discount)
+                    subtotal: updatedSubtotal, // Save subtotal (without discount)
                     discount: discount,
-                    totalAfterDiscount: updatedTotal, // Save total after discount
+                    total: updatedTotal, // Save total after discount
                 });
                 // Update local state to reflect changes
                 setActiveReceipts(prevReceipts =>
                     prevReceipts.map(r =>
-                        r.id === selectedReceipt.id ? { ...r, items: items, total: updatedSubtotal, discount, totalAfterDiscount: updatedTotal } : r
+                        r.id === selectedReceipt.id ? { ...r, items: items, subtotal: updatedSubtotal, discount, total: updatedTotal } : r
                     )
                 )
                 setModalVisible(false)
                 await showToast(`Receipt ${selectedReceipt.receiptNumber} has been updated`)
             } catch (error) {
-                setAlert({ visible: true, title: 'Error', message: 'Failed to update receipt. Please try again.', actions: [{ text: 'OK' }] });
+                setAlert({ visible: true, title: 'Error', message: 'Failed to update receipt. Please try again.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: true }) }] });
                 console.error('Error updating receipt:', error)
             }
         }
@@ -206,7 +215,7 @@ const ActiveReceipts = () => {
                 ToastAndroid.BOTTOM,
             );
         } else {
-            setAlert({ visible: true, title: 'Receiptify', message, actions: [{ text: 'OK' }] });
+            setAlert({ visible: true, title: 'Receiptify', message, actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
         }
     };
 
@@ -226,7 +235,7 @@ const ActiveReceipts = () => {
                 setModalVisible(false)
                 await showToast(`Receipt ${selectedReceipt.receiptNumber} has been finalized`)
             } catch (error) {
-                setAlert({ visible: true, title: 'Error', message: 'Failed to finalize receipt. Please try again.', actions: [{ text: 'OK' }] });
+                setAlert({ visible: true, title: 'Error', message: 'Failed to finalize receipt. Please try again.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
                 console.error('Error finalizing receipt:', error)
             }
         }
@@ -299,6 +308,14 @@ const ActiveReceipts = () => {
         // setNewItemPrice('')
     }
 
+    if (isLoading.state) {
+        return <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.loadingText}>{isLoading.message}</Text>
+        </View>
+    }
+
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -311,7 +328,7 @@ const ActiveReceipts = () => {
                     <Ionicons name="receipt-outline" size={64} color="#94a3b8" />
                     <Text style={styles.emptyStateTitle}>No Active Receipts</Text>
                     <Text style={styles.emptyStateMessage}>
-                        You don't have any active receipts yet.{'\n'}
+                        You don&apos;t have any active receipts yet.{'\n'}
                         Create a new receipt to get started.
                     </Text>
                     <TouchableOpacity
@@ -524,7 +541,7 @@ const ActiveReceipts = () => {
                                 setActiveReceipts(prevReceipts => prevReceipts.filter(r => r.id !== pendingDelete.id));
                                 await showToast(`Receipt ${pendingDelete.receiptNumber} has been deleted`);
                             } catch (error) {
-                                setAlert({ visible: true, title: 'Error', message: 'Failed to delete receipt. Please try again.', actions: [{ text: 'OK' }] });
+                                setAlert({ visible: true, title: 'Error', message: 'Failed to delete receipt. Please try again.', actions: [{ text: 'OK', onPress: () => setAlert({ ...alert, visible: false }) }] });
                                 console.error('Error deleting receipt:', error);
                             } finally {
                                 setPendingDelete(null);
@@ -549,6 +566,17 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f8f9fa',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 16,
+        color: '#666',
     },
     header: {
         paddingHorizontal: 20,

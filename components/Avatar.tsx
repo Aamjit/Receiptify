@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { StyleSheet, View, Alert, TouchableOpacity, Text, Image } from 'react-native'
+import { StyleSheet, View, Alert, TouchableOpacity, Text, Image, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker'
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -77,6 +77,13 @@ export default function Avatar({ url, size: { width = 100, height = 100 }, onIma
     return (
         <TouchableOpacity style={[styles.container, styles.logoPicker, { height: url ? 100 + height : 100 }]} onPress={() => { uploadAvatar() }}>
 
+            {uploading && (
+                <View style={styles.loadingOverlay}>
+                    <Text style={{ color: '#2196F3', fontWeight: 'bold', marginBottom: 8 }}>Uploading...</Text>
+                    <ActivityIndicator size="large" color="#2196F3" />
+                </View>
+            )}
+
             {url ? (
                 <View style={{ gap: 20 }}>
                     <Image
@@ -138,5 +145,13 @@ const styles = StyleSheet.create({
         color: '#4da2ff',
         fontSize: 12,
         textAlign: 'center',
-    }
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+        borderRadius: 8,
+    },
 })
